@@ -1,0 +1,101 @@
+after meeting with seb+marco Dec 10 2015
+
+MODELS TO IMPLEMENT FOR THE WHITE CAT EXPERIMENT
+
+NB1: for each model, test sequences of different lengths, e.g. 3 to 7 images (motivation: "magical number 7"... all the way down to 3), or 2 to 10, or whatever
+
+NB2: in all models below except baseline, output classifier error is back-propagated (through time where relevant), to train the various mapping matrices and any other parameter
+
+Inputs: CNN-based image representations i_i, word2vec word representation w
+
+
+* baseline w/o NN
+NAME: no_layers
+
+train classifier directly on concatenation of image vectors i_1 ... i_n and word vector w
+
+* feed-forward NN
+NAME: ff
+
+map image vectors to vector h
+map word vector w to query vector q
+concatenate h and q
+train a classifier on the concatenation
+
+* feed-forward NN with two hidden layers
+NAME: ff_deep
+
+map image vectors to vector h^1
+map h^1 to h^2
+map word vector w to query vector q
+concatenate h^2 and q
+train a classifier on the concatenation
+
+# model with more parameters, for control purposes
+
+* feed-forward NN with reference layer
+NAME: ff_reference
+
+map image vectors to separate reference vectors r_1 ... r_n (sharing parameters)
+map word vector w to query vector q
+concatenate r_1 ... r_n and q
+train a classifier on the concatenation
+
+# parameter sharing is what turns a vector into a "reference" vector
+
+* feed-forward NN with reference layer and soft retrieval
+NAME: ff_reference_soft
+
+map image vectors to separate reference vectors r_1 ... r_n (sharing parameters)
+map word vector w to query vector q
+soft retrieve to construct vector n by comparing q to r_1 ... r_n
+concatenate n and q
+train a classifier on the concatenation
+
+# soft retrieval
+# 1) compute dot product of q with r_1 ... r_n
+# 2) pass resulting n-dimensional vector of dot products through softmax
+# 3) sum r_1 ... r_n, each weighted by the corresponding normalized dot product, to obtain n
+
+# Gemma thinks that in this setup this model should work well (the hidden layer is not blurring the entities, as we have one separate h_i vector per image)
+
+* RNN
+NAME: rnn
+
+sequentially process input image vectors i_1 ... i_n mapping to recurrent vector h
+map word vector w to query vector q
+concatenate h_n (state of recurrent vector after processing all the images) and q
+train a classifier on the concatenation
+
+# Gemma thinks this will not work (hidden layer will blur entities)
+
+* RNN with two hidden layers
+NAME: rnn_deep
+
+sequentially process input image vectors i_1 ... i_n mapping to recurrent vector h^1
+at each step, map from recurrent vector h^1 to recurrent vector h^2
+map word vector w to query vector q
+concatenate h^2_n (state of top recurrent vector after processing all the images) and q
+train a classifier on the concatenation
+
+# this seems like a good control that the reference vectors are not just better
+# because they add an extra layer
+
+* RNN with reference layer
+NAME: rnn_reference
+
+sequentially process input image vectors i_1 ... i_n mapping to recurrent vector h
+at each step i, map recurrent vector state h_i to reference vector r_i
+map word vector w to query vector q
+concatenate r_1 ... r_n and q
+train a classifier on the concatenation
+
+* RNN with reference layer and soft retrieval
+NAME: rnn_reference_soft
+
+sequentially process input image vectors i_1 ... i_n mapping to recurrent vector h
+at each step i, map recurrent state h_i to reference vector r_i
+map word vector w to query vector q
+soft retrieve to construct vector n by comparing q to r_1 ... r_n
+concatenate n and q
+train a classifier on the concatenation
