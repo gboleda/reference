@@ -18,3 +18,4 @@ v_input_size=
 		     image_set_size,
 		     min_filled_image_set_size
    )
+
