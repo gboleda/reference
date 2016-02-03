@@ -1,5 +1,5 @@
--- feed-forward network with reference layer STABLE
-function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
+-- feed-forward network with reference layer DEPECRATED
+function ff_reference_depecrated(t_inp_size,v_inp_size,img_set_size,ref_size)
 
    local inputs = {}
    local reference_vectors = {}
@@ -43,8 +43,8 @@ function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
 end
 
 
--- feed-forward network with reference layer DEBUG
-function ff_reference_debug(t_inp_size,v_inp_size,img_set_size,ref_size)
+-- feed-forward network with reference layer STABLE
+function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
 
    local inputs = {}
    local reference_vectors = {}
