@@ -5,9 +5,6 @@ require('nngraph')
 require('optim')
 require('LinearNB') -- for linear mappings without bias
 
--- making sure random is random!
-math.randomseed(os.time())
-
 --[[
 ******* options *******
 ]]--
@@ -27,7 +24,7 @@ cmd:option('--stimuli_prefix','','prefix for stimuli files. Expects files PREFIX
 -- the following options are only used if we work with toy data such
 -- that we generate a training and a validation set, rather than
 -- reading them
-cmd:option('--training_set_size',10, 'training set size')
+cmd:option('--training_set_size',5, 'training set size')
 cmd:option('--validation_set_size',3, 'validation set size')
 cmd:option('--image_set_size', 5, 'max number of images in a set')
 cmd:option('--min_filled_image_set_size',3, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
@@ -60,8 +57,6 @@ cmd:option('--max_epochs',100, 'max number of epochs')
 -- number of adjacent epochs in which the validation loss is allowed
 -- to increase/be stable, before training is stop
 cmd:option('--max_validation_lull',2,'number of adjacent non-improving epochs before stop')
--- size of a mini-batch
-cmd:option('--mini_batch_size',2,'mini batch size')
 opt = cmd:parse(arg or {})
 print(opt)
 
@@ -90,23 +85,16 @@ feval = function(x)
    -- reset gradients
    model_weight_gradients:zero()
 
-   -- this assumes there is a current_batch_indices tensor telling us
-   -- which samples are in current batch
-   local batch_word_query_list=training_word_query_list:index(1,current_batch_indices)
-   local batch_index_list=training_index_list:index(1,current_batch_indices)
-   local batch_image_set_list={}
-   for j=1,image_set_size do
-      table.insert(batch_image_set_list,training_image_set_list[j]:index(1, current_batch_indices))
-   end
+   -- take forward pass for current training sample
 
-   -- take forward pass for current training batch
-   local model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
-   local loss = nll_criterion:forward(model_prediction,batch_index_list)
-   -- note that according to documentation, loss is already normalized by batch size
+   -- this assumes that there is an index variable next_sample_index
+   -- that tells us what is the next training sample to use
+   local current_gold_index=training_index_list[next_sample_index]
+   local model_prediction=model:forward({training_word_query_list[next_sample_index],unpack(training_image_set_list[next_sample_index])})
+   local loss = nll_criterion:forward(model_prediction,current_gold_index)
    -- take backward pass (note that this is implicitly updating the weight gradients)
-   local loss_gradient = nll_criterion:backward(model_prediction,batch_index_list)
-   model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
-
+   local loss_gradient = nll_criterion:backward(model_prediction,current_gold_index)
+   model:backward({training_word_query_list[next_sample_index],unpack(training_image_set_list[next_sample_index])},loss_gradient)
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
    return loss,model_weight_gradients
@@ -118,23 +106,27 @@ end
 --]]
 
 function test(test_word_query_list,test_image_set_list,test_index_list)
+   
+   local test_set_size=test_word_query_list:size(1)
 
-   -- passing all test samples through the trained network
-   local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
-   -- NB: according to documentation, the criterion function already normalizes loss!
-   local average_loss = nll_criterion:forward(model_prediction,test_index_list)
+   local cumulative_loss=0
+   local hit_count=0
 
-   -- to compute accuracy, we first retrieve list of indices of image
-   -- vectors that were preferred by the model
-   local _,model_guesses=torch.max(model_prediction,2)
-   -- we then count how often this guesses are the same as the gold
-   -- (and thus the difference is 0) (note conversions to long because
-   -- model_guesses is long tensor)
-   local hit_count = torch.sum(
-      torch.eq(test_index_list:long()-model_guesses,
-	       torch.Tensor(model_guesses:size(1)):zero():long()))
-   -- normalizing accuracy by test set size
-   local accuracy=hit_count/test_word_query_list:size(1)
+   for i=1,test_set_size do
+      local current_gold_index=test_index_list[i]
+      local model_prediction=model:forward({test_word_query_list[i],unpack(test_image_set_list[i])})
+      local loss = nll_criterion:forward(model_prediction,current_gold_index)
+      cumulative_loss = loss + cumulative_loss
+      -- we retrieve index of image vector that was preferred by model
+      local _,guessed_index = torch.max(model_prediction,2)
+      -- ... and consider it a hit if it's the same as the gold index
+      if (guessed_index[{1,1}]==current_gold_index) then
+	 hit_count=hit_count+1
+      end
+   end
+
+   local average_loss=cumulative_loss/test_set_size
+   local accuracy=hit_count/test_set_size
    return average_loss,accuracy
 end
 
@@ -159,25 +151,6 @@ if opt.toy ~= 0 then
    dofile('marco_main.lua')
 else
    dofile('gemma_main.lua')
-end
-
-
--- check that batch size is smaller than training set size: if it
--- isn't, set it to training set size
-local mini_batch_size=opt.mini_batch_size
-if (mini_batch_size>training_set_size) then
-   print('passed mini_batch_size larger than training set size, setting it to training set size')
-   mini_batch_size=training_set_size
-end
-
--- also, let's check if training_set_size is not a multiple of batch_size
-local number_of_batches=math.floor(training_set_size/mini_batch_size)
-print('each epoch will contain ' .. number_of_batches .. ' mini batches')
-local left_out_training_samples_size=training_set_size-(number_of_batches*mini_batch_size)
--- local used_training_samples_size=training_set_size-left_out_training_samples_size
-if (left_out_training_samples_size>0) then
-   print('since training set size is not a multiple of mini batch size, in each epoch we will exclude '
-	    .. left_out_training_samples_size .. ' random training samples')
 end
 
 --[[
@@ -233,24 +206,19 @@ while (continue_training==1) do
 
    -- getting a shuffled index through the training data,
    -- so that they are processed in a different order at each epoch
-   local shuffle = torch.randperm(training_set_size):long()
-          -- note that shuffle has to be LongTensor for compatibility
-          -- with the index function used below
+   local shuffle = torch.randperm(training_set_size)
 
-   -- we now start reading batches
-
-   local batch_begin_index = 1
-   while ((batch_begin_index+mini_batch_size-1)<=training_index_list:size(1)) do
-      current_batch_indices=shuffle:narrow(1,batch_begin_index,mini_batch_size)
+   -- we apply "proper" stochastic gradient descent, going through the
+   -- examples one by one
+   for i=1,training_set_size do
+      next_sample_index=shuffle[i]
       local _,losses = optim.sgd(feval,model_weights,sgd_parameters)
       -- sgd returns only one loss
       current_loss = current_loss + losses[1]
-      batch_begin_index=batch_begin_index+mini_batch_size
    end
    
-   -- average loss on number of batches
-   current_loss = current_loss/number_of_batches
-
+   -- average loss on current epoch
+   current_loss = current_loss/training_set_size
 
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
@@ -258,16 +226,17 @@ while (continue_training==1) do
    local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
+
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
    if (epoch_counter<=opt.min_epochs) then
       continue_training=1
-   -- if we have reached the max number of epochs, we stop no matter what
+      -- if we have reached the max number of epochs, we stop no matter what
    elseif (epoch_counter>=opt.max_epochs) then
       continue_training=0
-   -- if we are in the between epoch range, we must check that the
-   -- current validation loss has not been in non-improving mode for
-   -- max_validation_lull epochs
+      -- if we are in the between epoch range, we must check that the
+      -- current validation loss has not been in non-improving mode for
+      -- max_validation_lull epochs
    elseif (epoch_counter>opt.min_epochs) then
       if (validation_loss>=previous_validation_loss) then
 	 non_improving_epochs_count=non_improving_epochs_count+1
@@ -281,5 +250,3 @@ while (continue_training==1) do
    previous_validation_loss=validation_loss
    epoch_counter=epoch_counter+1
 end
-
-
