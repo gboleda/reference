@@ -13,7 +13,7 @@ math.randomseed(os.time())
 ]]--
 
 cmd = torch.CmdLine()
--- temporary flag for debugging
+-- temporary flag for debugging, might or might not be used
 cmd:option('--debug',0,'call special debug functions')
 
 -- decide if we want to work with toy or real data
@@ -195,12 +195,7 @@ local sgd_parameters = {
 }
 print('assembling and initializing the model')
 -- here, we will have an option-based switch to decide which model...
--- for now, only debugging
-if (opt.debug==1) then
-   model=ff_reference_debug(t_input_size,v_input_size,image_set_size,opt.reference_size)
-else
    model=ff_reference(t_input_size,v_input_size,image_set_size,opt.reference_size)
-end
 -- we use the negative log-likelihood criterion (which expects LOG probabilities
 -- as model outputs!)
 nll_criterion= nn.ClassNLLCriterion()

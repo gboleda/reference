@@ -16,10 +16,11 @@ function generate_one_hot_vector(one_index,dimensionality)
    return vector
 end
 
+-- DEPRECATED FROM HERE
 -- this function generates toy data where a one-hot word vector is
 -- consistently associated to the same one-hot image vector, and each
 -- image set contains one instance of the right image vector
-function generate_easy_one_hot_toy_data(data_set_size,vocabulary_size,image_ones,image_set_size,min_filled_image_set_size)
+function generate_easy_one_hot_toy_data_deprecated(data_set_size,vocabulary_size,image_ones,image_set_size,min_filled_image_set_size)
    -- image dimensionality equals the number of elements in the
    -- image_ones vector
    local image_dimensionality = image_ones:size(1)
@@ -77,6 +78,7 @@ function generate_easy_one_hot_toy_data(data_set_size,vocabulary_size,image_ones
    end
    return word_query_list,image_set_list,index_list
 end
+-- DEPRECATED TO HERE
 
 -- this function works, but it is not used now
 function generate_entirely_random_toy_data(data_set_size,validation_set_size,image_set_size,
@@ -113,8 +115,7 @@ function generate_entirely_random_toy_data(data_set_size,validation_set_size,ima
    return word_query_list,image_set_list,index_list
 end
 
------ DEBUG FROM HERE
-function generate_easy_one_hot_toy_data_debug(data_set_size,vocabulary_size,image_ones,image_set_size,min_filled_image_set_size)
+function generate_easy_one_hot_toy_data(data_set_size,vocabulary_size,image_ones,image_set_size,min_filled_image_set_size)
    -- image dimensionality equals the number of elements in the
    -- image_ones vector
    local image_dimensionality = image_ones:size(1)
@@ -169,7 +170,6 @@ function generate_easy_one_hot_toy_data_debug(data_set_size,vocabulary_size,imag
    end
    return word_query_list,image_set_list,index_list
 end
------ DEBUG TO HERE
 
 -- this function is currently hard-coded to work only by calling
 -- generate_easy_one_hot_toy_data, which it calls twice, once to
@@ -188,19 +188,15 @@ function generate_toy_data(training_set_size,validation_set_size,t_input_size,im
    -- generating a tensor of indices supposed to be the non-zero
    -- entries in the image vectors (note that we must do this here, so
    -- that it's shared across training and validation data)
-   -- debug: not local!
-   image_ones = torch.randperm(image_dimensionality)
---   local image_ones = torch.randperm(image_dimensionality)
+   local image_ones = torch.randperm(image_dimensionality)
 
    print('generating toy training data')
    local training_word_query_list,training_image_set_list,training_index_list = 
-      -- debug
-     generate_easy_one_hot_toy_data_debug(training_set_size,t_input_size,image_ones,image_set_size,min_filled_image_set_size)
+     generate_easy_one_hot_toy_data(training_set_size,t_input_size,image_ones,image_set_size,min_filled_image_set_size)
    
    print('generating toy validation data')
-   -- debug
    local validation_word_query_list,validation_image_set_list,validation_index_list = 
-      generate_easy_one_hot_toy_data_debug(validation_set_size,t_input_size,image_ones,image_set_size,min_filled_image_set_size)
+      generate_easy_one_hot_toy_data(validation_set_size,t_input_size,image_ones,image_set_size,min_filled_image_set_size)
  
    --NB routine also returns image dimensionality, which is expected to overwrite v_input_size
    return 
