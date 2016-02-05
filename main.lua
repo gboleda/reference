@@ -62,7 +62,7 @@ cmd:option('--min_epochs',1, 'min number of epochs')
 -- validation loss is still decreasing
 cmd:option('--max_epochs',100, 'max number of epochs')
 -- number of adjacent epochs in which the validation loss is allowed
--- to increase/be stable, before training is stop
+-- to increase/be stable, before training is stopped
 cmd:option('--max_validation_lull',2,'number of adjacent non-improving epochs before stop')
 -- size of a mini-batch
 cmd:option('--mini_batch_size',2,'mini batch size')
