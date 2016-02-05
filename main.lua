@@ -22,28 +22,28 @@ cmd:option('--debug',0,'call special debug functions')
 -- cmd:option('--codebase_path','','path to reference codebase, needed if main script is launched from elsewhere')
 
 -- the following options are used both with toy and with real data
-cmd:option('--image_set_size', 5, 'max number of images in a set')
-cmd:option('--training_set_size',10, 'training set size')
-cmd:option('--validation_set_size',3, 'validation set size')
+cmd:option('--image_set_size', 0, 'max number of images in a set')
+cmd:option('--training_set_size',0, 'training set size')
+cmd:option('--validation_set_size',0, 'validation set size')
 
 -- decide if we want to work with toy or real data
 cmd:option('--toy',0,'work with toy data? (generated within the script); else, real data from files; default: 0; set to 1 if you want to use toy data')
 
 -- the following options are only used if we work with real data
-cmd:option('--word_lexicon_file','','word lexicon file (with word vectors; first field word, rest of the fields vector values)')
-cmd:option('--image_dataset_file','','image dataset file (with visual vectors; first field word and image, rest of the fields vector values)')
+cmd:option('--word_embedding_file','','word embedding file (with word vectors; first field word, rest of the fields vector values)')
+cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
-cmd:option('--test_set_size',0, 'test set size (0, i.e., no test data, by default')
+cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume there are no test data)')
 
 -- the following options are only used if we work with toy data such
 -- that we generate a training and a validation set, rather than
 -- reading them
-cmd:option('--min_filled_image_set_size',3, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
-cmd:option('--t_input_size',5, 'word embedding size')
+cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
+cmd:option('--t_input_size',0, 'word embedding size')
 
 -- model parameters
 -- the following is only relevant for models with reference vectors
-cmd:option('--reference_size',3, 'size of reference vectors')
+cmd:option('--reference_size',80, 'size of reference vectors')
 
 -- training parameters
 -- sgd hyperparameters (copying defaults from
@@ -113,11 +113,11 @@ else
 -- REAL DATA PROCESSING
    -- reading word embeddings
    word_embeddings,t_input_size=
-      load_embeddings(opt.word_lexicon_file)
+      load_embeddings(opt.word_embedding_file)
    --reading image embeddings
    image_embeddings,v_input_size=
-      load_embeddings(opt.image_dataset_file)
-   
+      load_embeddings(opt.image_embedding_file)
+
    -- reading in the training data
    training_word_query_list,
    training_image_set_list,
@@ -126,7 +126,8 @@ else
 	 opt.protocol_prefix .. ".train",
 	 opt.training_set_size,
 	 t_input_size,
-	 v_input_size,opt.image_set_size)
+	 v_input_size,
+	 opt.image_set_size)
 
    -- reading in the validation data
    validation_word_query_list,
@@ -136,9 +137,21 @@ else
 	 opt.protocol_prefix .. ".valid",
 	 opt.validation_set_size,
 	 t_input_size,
-	 v_input_size,opt.image_set_size)
+	 v_input_size,
+	 opt.image_set_size)
 
-end
+   -- finally, if we have test data, we load them as well
+   if (opt.test_set_size>0) then
+      test_word_query_list,
+      test_image_set_list,
+      test_index_list=
+	 create_input_structures_from_file(
+	    opt.protocol_prefix .. ".test",
+	    opt.test_set_size,
+	    t_input_size,
+	    v_input_size,
+	    opt.image_set_size)
+   end
 
 
 -- check that batch size is smaller than training set size: if it
@@ -184,7 +197,6 @@ model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
 print('number of parameters in the model: ' .. model_weights:nElement())
 
 
-
 --[[
 ******* feval function to perform forward/backward step *******
 --]]
@@ -228,7 +240,7 @@ end
 
 
 --[[
-******* testing function *******
+******* testing/validation function *******
 --]]
 
 function test(test_word_query_list,test_image_set_list,test_index_list)
@@ -324,5 +336,11 @@ while (continue_training==1) do
    epoch_counter=epoch_counter+1
 end
 
-
-
+-- training is over, now, if test data are available, we can report
+-- performance on them
+if (opt.test_set_size>0) then
+   print('training done and test data available...')
+   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list)
+   print('test loss: ' .. test_loss)
+   print('test accuracy: ' .. test_accuracy)
+end
