@@ -1,4 +1,4 @@
-function load_data(word_lexicon_file,image_dataset_file,stimuli_prefix)
+function load_data(word_lexicon_file,image_dataset_file,protocol_prefix)
    --
    print("Hi there!")
    print(word_lexicon_file)

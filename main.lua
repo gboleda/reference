@@ -16,28 +16,27 @@ cmd = torch.CmdLine()
 -- temporary flag for debugging, might or might not be used
 cmd:option('--debug',0,'call special debug functions')
 
+-- the following options are used both with toy and with real data
+cmd:option('--image_set_size', 5, 'max number of images in a set')
+cmd:option('--training_set_size',10, 'training set size')
+cmd:option('--validation_set_size',3, 'validation set size')
+
 -- decide if we want to work with toy or real data
 cmd:option('--toy',0,'work with toy data? (generated within the script); else, real data from files; default: 0; set to 1 if you want to use toy data')
 
 -- the following options are only used if we work with real data
 cmd:option('--word_lexicon_file','','word lexicon file (with word vectors; first field word, rest of the fields vector values)')
 cmd:option('--image_dataset_file','','image dataset file (with visual vectors; first field word and image, rest of the fields vector values)')
-cmd:option('--stimuli_prefix','','prefix for stimuli files. Expects files PREFIX.(train|valid|text) to be in the folder where program is called. Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
+cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
+cmd:option('--test_set_size',0, 'test set size (0, i.e., no test data, by default')
 
 -- the following options are only used if we work with toy data such
 -- that we generate a training and a validation set, rather than
 -- reading them
-cmd:option('--training_set_size',10, 'training set size')
-cmd:option('--validation_set_size',3, 'validation set size')
-cmd:option('--image_set_size', 5, 'max number of images in a set')
 cmd:option('--min_filled_image_set_size',3, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
-
--- model parameters (except for reference size, these might be
--- overwritten by data reading routine, if we're working with real
--- data; the image embedding size is also overwritten by the toy data
--- routine!)
 cmd:option('--t_input_size',5, 'word embedding size')
-cmd:option('--v_input_size', 5, 'image embedding size')
+
+-- model parameters
 -- the following is only relevant for models with reference vectors
 cmd:option('--reference_size',3, 'size of reference vectors')
 
@@ -65,11 +64,126 @@ cmd:option('--mini_batch_size',2,'mini batch size')
 opt = cmd:parse(arg or {})
 print(opt)
 
+-- other general parameters
+-- chunks to read files into
+BUFSIZE = 2^23 -- 1MB
+
+
 print('reading the models file')
 dofile('models.lua')
 
 print('reading the data processing file')
 dofile('data.lua')
+
+
+--[[
+****** input data reading ******
+--]]
+
+-- NB: This goes before initializations bc some parameters needed to
+-- intialize athe models are initialized during data reading
+
+print('preparing the data')
+local training_set_size=0
+local validation_set_size=0
+local image_set_size=0
+local t_input_size=0
+local v_input_size=0
+local min_filled_image_set_size=0
+
+if opt.toy ~= 0 then
+-- TOY DATA PROCESSING
+   training_set_size=opt.training_set_size
+   validation_set_size=opt.validation_set_size
+   image_set_size=opt.image_set_size
+   t_input_size=opt.t_input_size
+   min_filled_image_set_size=opt.min_filled_image_set_size
+
+   training_word_query_list,
+   training_image_set_list,
+   training_index_list,
+   validation_word_query_list,
+   validation_image_set_list,
+   validation_index_list,
+   v_input_size=
+      generate_toy_data(training_set_size,
+			validation_set_size,
+			t_input_size,
+			image_set_size,
+			min_filled_image_set_size
+   )
+else
+-- REAL DATA PROCESSING
+   image_set_size=opt.image_set_size
+
+   -- reading word embeddings
+   word_embeddings,t_input_size=
+      load_embeddings(opt.word_lexicon_file)
+   --reading image embeddings
+   image_embeddings,v_input_size=
+      load_embeddings(opt.image_dataset_file)
+   
+
+   -- reading in the training data
+   training_word_query_list,
+   validation_word_query_list,
+   training_image_set_list,
+   validation_image_set_list,
+   training_index_list,
+   validation_index_list,
+   training_set_size,
+   validation_set_size,
+   image_set_size,
+   t_input_size,
+   v_input_size=
+      load_data(opt.word_lexicon_file,opt.image_dataset_file,opt.stimuli_prefix)
+end
+
+
+-- check that batch size is smaller than training set size: if it
+-- isn't, set it to training set size
+local mini_batch_size=opt.mini_batch_size
+if (mini_batch_size>training_set_size) then
+   print('passed mini_batch_size larger than training set size, setting it to training set size')
+   mini_batch_size=training_set_size
+end
+
+-- also, let's check if training_set_size is not a multiple of batch_size
+local number_of_batches=math.floor(training_set_size/mini_batch_size)
+print('each epoch will contain ' .. number_of_batches .. ' mini batches')
+local left_out_training_samples_size=training_set_size-(number_of_batches*mini_batch_size)
+-- local used_training_samples_size=training_set_size-left_out_training_samples_size
+if (left_out_training_samples_size>0) then
+   print('since training set size is not a multiple of mini batch size, in each epoch we will exclude '
+	    .. left_out_training_samples_size .. ' random training samples')
+end
+
+--[[
+******* initializations *******
+--]]
+
+-- the hyperparameters for plain sgd
+-- possibly in the future we might want to switch
+-- between SGD and other optimization routines
+local sgd_parameters = {
+   learningRate = opt.learning_rate,
+   weightDecay = opt.weight_decay,
+   momentum = opt.momentum,
+   learningRateDecay = opt.learning_rate_decay 
+}
+print('assembling and initializing the model')
+-- here, we will have an option-based switch to decide which model...
+   model=ff_reference(t_input_size,v_input_size,image_set_size,opt.reference_size)
+-- we use the negative log-likelihood criterion (which expects LOG probabilities
+-- as model outputs!)
+nll_criterion= nn.ClassNLLCriterion()
+-- getting pointers to the model weights and their gradient
+model_weights, model_weight_gradients = model:getParameters()
+-- initializing
+model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
+print('number of parameters in the model: ' .. model_weights:nElement())
+
+
 
 --[[
 ******* feval function to perform forward/backward step *******
@@ -137,73 +251,6 @@ function test(test_word_query_list,test_image_set_list,test_index_list)
    local accuracy=hit_count/test_word_query_list:size(1)
    return average_loss,accuracy
 end
-
-
---[[
-****** input data reading ******
---]]
--- NB: This goes before initializations bc some parameters are
--- initialized during data reading
-
-print('preparing the data')
--- following should be local, not local now because of interaction with dofile!
-training_set_size=0
-validation_set_size=0
-image_set_size=0
-t_input_size=0
-v_input_size=0
-min_filled_image_set_size=0
-
--- NB, with toy data, command-line v_input size option is overwritten!
-if opt.toy ~= 0 then
-   dofile('marco_main.lua')
-else
-   dofile('gemma_main.lua')
-end
-
-
--- check that batch size is smaller than training set size: if it
--- isn't, set it to training set size
-local mini_batch_size=opt.mini_batch_size
-if (mini_batch_size>training_set_size) then
-   print('passed mini_batch_size larger than training set size, setting it to training set size')
-   mini_batch_size=training_set_size
-end
-
--- also, let's check if training_set_size is not a multiple of batch_size
-local number_of_batches=math.floor(training_set_size/mini_batch_size)
-print('each epoch will contain ' .. number_of_batches .. ' mini batches')
-local left_out_training_samples_size=training_set_size-(number_of_batches*mini_batch_size)
--- local used_training_samples_size=training_set_size-left_out_training_samples_size
-if (left_out_training_samples_size>0) then
-   print('since training set size is not a multiple of mini batch size, in each epoch we will exclude '
-	    .. left_out_training_samples_size .. ' random training samples')
-end
-
---[[
-******* initializations *******
---]]
-
--- the hyperparameters for plain sgd
--- possibly in the future we might want to switch
--- between SGD and other optimization routines
-local sgd_parameters = {
-   learningRate = opt.learning_rate,
-   weightDecay = opt.weight_decay,
-   momentum = opt.momentum,
-   learningRateDecay = opt.learning_rate_decay 
-}
-print('assembling and initializing the model')
--- here, we will have an option-based switch to decide which model...
-   model=ff_reference(t_input_size,v_input_size,image_set_size,opt.reference_size)
--- we use the negative log-likelihood criterion (which expects LOG probabilities
--- as model outputs!)
-nll_criterion= nn.ClassNLLCriterion()
--- getting pointers to the model weights and their gradient
-model_weights, model_weight_gradients = model:getParameters()
--- initializing
-model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
-print('number of parameters in the model: ' .. model_weights:nElement())
 
    
 --[[
