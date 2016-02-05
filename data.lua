@@ -138,10 +138,8 @@ function load_embeddings(i_file)
    return embeddings,input_size
 end
 
-function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_inut_sizeimage_set_size)
+function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_input_size,image_set_size)
    print('reading protocol file ' .. i_file)
-
-   local image_dimensionality = image_ones:size(1)
 
    -- initializing the data structures to hold the data
 
@@ -164,29 +162,43 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- image (the one corresponding to the word) into the corresponding
    -- ordered set of tensors in image_set_list
    local index_list = torch.Tensor(data_set_size)
-   
-   -- I AM HERE
 
    local f = io.input(i_file)
+   local i=1
    while true do
       local lines, rest = f:read(BUFSIZE, "*line")
       if not lines then break end
       if rest then lines = lines .. rest .. '\n' end
       -- traversing current chunk line by line
+      local i=1 -- line counter
       for current_line in lines:gmatch("[^\n]+") do
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
 	 current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
-	 -- first field is word id, second field is other fields are embedding vector
-	 embeddings[current_data[1]]=
-	    torch.Tensor({unpack(current_data,2,#current_data)})
+	 -- first field is word id, second field gold index, other
+	 -- fields image ids
+	 word_query_list[i]=word_embeddings[current_data[1]]
+	 index_list[i]=current_data[2]
+	 -- because there might be less images in current trial than
+	 -- the maximum (determined by image size) we only replace the
+	 -- 0s in the first n image_set_size tensors, where n is the number
+	 -- of image indices in the current input row
+	 local current_images_count = #current_data-2
+	 for j=1,current_images_count do
+	    local id_position=j+2
+	    image_set_list[j][i]=image_embeddings[current_data[id_position]]
+	 end
+	 i=i+1
       end
    end
    f.close()
-
-
+   return word_query_list,image_set_list,index_list
 end
 
+-- REAL DATA TO HERE
+
+--[===[
+OLD
 function load_data(word_lexicon_file,image_dataset_file,protocol_prefix)
    --
    print("Hi there!")
@@ -198,5 +210,5 @@ function load_data(word_lexicon_file,image_dataset_file,protocol_prefix)
    -- return training_word_query_list,validation_word_query_list,training_image_set_list,validation_image_set_list,training_index_list,validation_index_list,training_set_size,validation_set_size,image_set_size,t_input_size,v_input_size
       return true
 end
--- REAL DATA TO HERE
+--]===]
 

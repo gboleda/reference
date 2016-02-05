@@ -16,6 +16,11 @@ cmd = torch.CmdLine()
 -- temporary flag for debugging, might or might not be used
 cmd:option('--debug',0,'call special debug functions')
 
+-- this option is needed to specify the path to the reference codebase,
+-- in case this main script is launched from another directory (must include
+-- final slash!)
+-- cmd:option('--codebase_path','','path to reference codebase, needed if main script is launched from elsewhere')
+
 -- the following options are used both with toy and with real data
 cmd:option('--image_set_size', 5, 'max number of images in a set')
 cmd:option('--training_set_size',10, 'training set size')
@@ -84,21 +89,13 @@ dofile('data.lua')
 -- intialize athe models are initialized during data reading
 
 print('preparing the data')
-local training_set_size=0
-local validation_set_size=0
-local image_set_size=0
 local t_input_size=0
 local v_input_size=0
-local min_filled_image_set_size=0
 
 if opt.toy ~= 0 then
 -- TOY DATA PROCESSING
-   training_set_size=opt.training_set_size
-   validation_set_size=opt.validation_set_size
-   image_set_size=opt.image_set_size
-   t_input_size=opt.t_input_size
-   min_filled_image_set_size=opt.min_filled_image_set_size
 
+   t_input_size=opt.t_input_size
    training_word_query_list,
    training_image_set_list,
    training_index_list,
@@ -106,16 +103,14 @@ if opt.toy ~= 0 then
    validation_image_set_list,
    validation_index_list,
    v_input_size=
-      generate_toy_data(training_set_size,
-			validation_set_size,
-			t_input_size,
-			image_set_size,
-			min_filled_image_set_size
+      generate_toy_data(opt.training_set_size,
+			opt.validation_set_size,
+			opt.t_input_size,
+			opt.image_set_size,
+			opt.min_filled_image_set_size
    )
 else
 -- REAL DATA PROCESSING
-   image_set_size=opt.image_set_size
-
    -- reading word embeddings
    word_embeddings,t_input_size=
       load_embeddings(opt.word_lexicon_file)
@@ -123,35 +118,40 @@ else
    image_embeddings,v_input_size=
       load_embeddings(opt.image_dataset_file)
    
-
    -- reading in the training data
    training_word_query_list,
-   validation_word_query_list,
    training_image_set_list,
+   training_index_list=
+      create_input_structures_from_file(
+	 opt.protocol_prefix .. ".train",
+	 opt.training_set_size,
+	 t_input_size,
+	 v_input_size,opt.image_set_size)
+
+   -- reading in the validation data
+   validation_word_query_list,
    validation_image_set_list,
-   training_index_list,
-   validation_index_list,
-   training_set_size,
-   validation_set_size,
-   image_set_size,
-   t_input_size,
-   v_input_size=
-      load_data(opt.word_lexicon_file,opt.image_dataset_file,opt.stimuli_prefix)
+   validation_index_list=
+      create_input_structures_from_file(
+	 opt.protocol_prefix .. ".valid",
+	 opt.validation_set_size,
+	 t_input_size,
+	 v_input_size,opt.image_set_size)
+
 end
 
 
 -- check that batch size is smaller than training set size: if it
 -- isn't, set it to training set size
-local mini_batch_size=opt.mini_batch_size
-if (mini_batch_size>training_set_size) then
+if (opt.mini_batch_size>opt.training_set_size) then
    print('passed mini_batch_size larger than training set size, setting it to training set size')
-   mini_batch_size=training_set_size
+   opt.mini_batch_size=opt.training_set_size
 end
 
 -- also, let's check if training_set_size is not a multiple of batch_size
-local number_of_batches=math.floor(training_set_size/mini_batch_size)
+local number_of_batches=math.floor(opt.training_set_size/opt.mini_batch_size)
 print('each epoch will contain ' .. number_of_batches .. ' mini batches')
-local left_out_training_samples_size=training_set_size-(number_of_batches*mini_batch_size)
+local left_out_training_samples_size=opt.training_set_size-(number_of_batches*opt.mini_batch_size)
 -- local used_training_samples_size=training_set_size-left_out_training_samples_size
 if (left_out_training_samples_size>0) then
    print('since training set size is not a multiple of mini batch size, in each epoch we will exclude '
@@ -173,7 +173,7 @@ local sgd_parameters = {
 }
 print('assembling and initializing the model')
 -- here, we will have an option-based switch to decide which model...
-   model=ff_reference(t_input_size,v_input_size,image_set_size,opt.reference_size)
+   model=ff_reference(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
 -- we use the negative log-likelihood criterion (which expects LOG probabilities
 -- as model outputs!)
 nll_criterion= nn.ClassNLLCriterion()
@@ -209,7 +209,7 @@ feval = function(x)
    local batch_word_query_list=training_word_query_list:index(1,current_batch_indices)
    local batch_index_list=training_index_list:index(1,current_batch_indices)
    local batch_image_set_list={}
-   for j=1,image_set_size do
+   for j=1,opt.image_set_size do
       table.insert(batch_image_set_list,training_image_set_list[j]:index(1, current_batch_indices))
    end
 
@@ -275,19 +275,19 @@ while (continue_training==1) do
 
    -- getting a shuffled index through the training data,
    -- so that they are processed in a different order at each epoch
-   local shuffle = torch.randperm(training_set_size):long()
+   local shuffle = torch.randperm(opt.training_set_size):long()
           -- note that shuffle has to be LongTensor for compatibility
           -- with the index function used below
 
    -- we now start reading batches
 
    local batch_begin_index = 1
-   while ((batch_begin_index+mini_batch_size-1)<=training_index_list:size(1)) do
-      current_batch_indices=shuffle:narrow(1,batch_begin_index,mini_batch_size)
+   while ((batch_begin_index+opt.mini_batch_size-1)<=training_index_list:size(1)) do
+      current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
       local _,losses = optim.sgd(feval,model_weights,sgd_parameters)
       -- sgd returns only one loss
       current_loss = current_loss + losses[1]
-      batch_begin_index=batch_begin_index+mini_batch_size
+      batch_begin_index=batch_begin_index+opt.mini_batch_size
    end
    
    -- average loss on number of batches
@@ -323,5 +323,6 @@ while (continue_training==1) do
    previous_validation_loss=validation_loss
    epoch_counter=epoch_counter+1
 end
+
 
 
