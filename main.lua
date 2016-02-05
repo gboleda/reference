@@ -152,7 +152,7 @@ else
 	    v_input_size,
 	    opt.image_set_size)
    end
-
+end
 
 -- check that batch size is smaller than training set size: if it
 -- isn't, set it to training set size
