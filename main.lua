@@ -32,6 +32,7 @@ cmd:option('--toy',0,'work with toy data? (generated within the script); else, r
 -- the following options are only used if we work with real data
 cmd:option('--word_embedding_file','','word embedding file (with word vectors; first field word, rest of the fields vector values)')
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
+cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
 cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume there are no test data)')
 
@@ -113,10 +114,10 @@ else
 -- REAL DATA PROCESSING
    -- reading word embeddings
    word_embeddings,t_input_size=
-      load_embeddings(opt.word_embedding_file)
+      load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
    --reading image embeddings
    image_embeddings,v_input_size=
-      load_embeddings(opt.image_embedding_file)
+      load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
 
    -- reading in the training data
    training_word_query_list,

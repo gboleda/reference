@@ -112,7 +112,7 @@ end
 -- TOY DATA TO HERE
 
 -- REAL DATA FROM HERE
-function load_embeddings(i_file)
+function load_embeddings(i_file,normalize_embeddings)
 
    print('reading embeddings file ' .. i_file)
    local embeddings={}
@@ -130,6 +130,15 @@ function load_embeddings(i_file)
 	 -- first field is id, other fields are embedding vector
 	 embeddings[current_data[1]]=
 	    torch.Tensor({unpack(current_data,2,#current_data)})
+	 -- normalize if we are asked to
+	 if (normalize_embeddings>0) then
+	    local embedding_norm = torch.norm(embeddings[current_data[1]])
+	    -- avoid dividing by 0
+	    if (embedding_norm~=0) then
+	       embeddings[current_data[1]]=
+		  embeddings[current_data[1]]/embedding_norm
+	    end
+	 end
       end
    end
    f.close()
