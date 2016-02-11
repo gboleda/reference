@@ -277,7 +277,7 @@ print('proceeding to training and validation')
 -- the validation loss does not decrease
 local epoch_counter=1
 local continue_training=1
-local previous_validation_loss=1e10 -- arbitrary high loss, to make sure we are going to "improve" on first epoch
+local previous_validation_loss=1e10 -- arbitrary high loss, to make sure we are going to "improve" on first epoch *** set to Huge
 local non_improving_epochs_count=0
 while (continue_training==1) do
 
@@ -315,6 +315,7 @@ while (continue_training==1) do
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
+   -- *** remove if below (simplify)
    if (epoch_counter<=opt.min_epochs) then
       continue_training=1
    -- if we have reached the max number of epochs, we stop no matter what
