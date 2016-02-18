@@ -19,6 +19,7 @@ cmd:option('--debug',0,'call special debug functions')
 -- this option is needed to specify the path to the reference codebase,
 -- in case this main script is launched from another directory (must include
 -- final slash!)
+-- gbt: why is it commented out?
 -- cmd:option('--codebase_path','','path to reference codebase, needed if main script is launched from elsewhere')
 
 -- the following options are used both with toy and with real data
@@ -41,10 +42,13 @@ cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume th
 -- reading them
 cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
 cmd:option('--t_input_size',0, 'word embedding size')
-
 -- model parameters
+local mst = {ff_ref=true, max_margin_bl=true}
+local msg='model, to choose from: '
+for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
+cmd:option('--model','ff_ref', msg)
 -- the following is only relevant for models with reference vectors
-cmd:option('--reference_size',80, 'size of reference vectors')
+cmd:option('--reference_size',80, 'size of reference vectors; for max margin baseline, recycled to give size of mapped vectors')
 
 -- training parameters
 -- sgd hyperparameters (copying defaults from
@@ -74,6 +78,18 @@ print(opt)
 -- chunks to read files into
 BUFSIZE = 2^23 -- 1MB
 
+--[[
+****** checking command-line arguments ******
+--]]
+if not mst[opt.model] then
+   error('ERROR: wrong model type: ' .. tostring(opt.model))
+end
+if opt.toy ~= 0 then
+   if opt.test_set_size ~=0 then
+      print('WARNING: no testing in toy mode (resetting test_set_size to 0)')
+      opt.test_set_size = 0
+   end
+end
 
 print('reading the models file')
 dofile('models.lua')
@@ -186,11 +202,19 @@ local sgd_parameters = {
    learningRateDecay = opt.learning_rate_decay 
 }
 print('assembling and initializing the model')
--- here, we will have an option-based switch to decide which model...
+-- option-based switch to set model
+if opt.model == 'ff_ref' then
    model=ff_reference(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
--- we use the negative log-likelihood criterion (which expects LOG probabilities
--- as model outputs!)
-nll_criterion= nn.ClassNLLCriterion()
+   -- we use the negative log-likelihood criterion (which expects LOG probabilities
+   -- as model outputs!)
+   criterion= nn.ClassNLLCriterion()
+elseif opt.model == 'max_margin_bl' then
+   error('ERROR: still not implemented: ' .. tostring(opt.model))
+   -- model=max_margin_baseline_model(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
+   -- criterion=nn.MarginRankingCriterion()
+end
+
+
 -- getting pointers to the model weights and their gradient
 model_weights, model_weight_gradients = model:getParameters()
 -- initializing
@@ -228,10 +252,10 @@ feval = function(x)
 
    -- take forward pass for current training batch
    local model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
-   local loss = nll_criterion:forward(model_prediction,batch_index_list)
+   local loss = criterion:forward(model_prediction,batch_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
-   local loss_gradient = nll_criterion:backward(model_prediction,batch_index_list)
+   local loss_gradient = criterion:backward(model_prediction,batch_index_list)
    model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
 
    -- clip gradients element-wise
@@ -249,7 +273,7 @@ function test(test_word_query_list,test_image_set_list,test_index_list)
    -- passing all test samples through the trained network
    local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
    -- NB: according to documentation, the criterion function already normalizes loss!
-   local average_loss = nll_criterion:forward(model_prediction,test_index_list)
+   local average_loss = criterion:forward(model_prediction,test_index_list)
 
    -- to compute accuracy, we first retrieve list of indices of image
    -- vectors that were preferred by the model
@@ -277,7 +301,7 @@ print('proceeding to training and validation')
 -- the validation loss does not decrease
 local epoch_counter=1
 local continue_training=1
-local previous_validation_loss=1e10 -- arbitrary high loss, to make sure we are going to "improve" on first epoch *** set to Huge
+local previous_validation_loss=1e10 -- arbitrary high loss, to make sure we are going to "improve" on first epoch *** gbt: set to Huge
 local non_improving_epochs_count=0
 while (continue_training==1) do
 
@@ -293,7 +317,6 @@ while (continue_training==1) do
           -- with the index function used below
 
    -- we now start reading batches
-
    local batch_begin_index = 1
    while ((batch_begin_index+opt.mini_batch_size-1)<=training_index_list:size(1)) do
       current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
@@ -315,7 +338,7 @@ while (continue_training==1) do
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
-   -- *** remove if below (simplify)
+   -- *** gbt: remove 'if' below (simplify)
    if (epoch_counter<=opt.min_epochs) then
       continue_training=1
    -- if we have reached the max number of epochs, we stop no matter what
