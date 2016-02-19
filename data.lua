@@ -183,7 +183,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
       for current_line in lines:gmatch("[^\n]+") do
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
-	 current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
+	 current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+") -- should be local *************
 	 -- first field is word id, second field gold index, other
 	 -- fields image ids
 	 word_query_list[i]=word_embeddings[current_data[1]]

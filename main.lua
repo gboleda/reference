@@ -36,6 +36,7 @@ cmd:option('--image_embedding_file','','image embedding file (with visual vector
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
 cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume there are no test data)')
+cmd:option('--output_guesses_file','','if this file is defined, at test time we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 
 -- the following options are only used if we work with toy data such
 -- that we generate a training and a validation set, rather than
@@ -78,9 +79,19 @@ print(opt)
 -- chunks to read files into
 BUFSIZE = 2^23 -- 1MB
 
+
 --[[
 ****** checking command-line arguments ******
 --]]
+local output_guesses_file=nil
+if opt.output_guesses_file~='' then
+   output_guesses_file=opt.output_guesses_file
+end
+-- if test size is 0, we won't output test guesses to a file
+if ((opt.test_set_size == 0) and (output_guesses_file)) then
+   print('WARNING: you requested to print test guesses to file ' .. output_guesses_file .. ' but no test set is expected... ignoring your request')
+end
+
 if not mst[opt.model] then
    error('ERROR: wrong model type: ' .. tostring(opt.model))
 end
@@ -125,7 +136,7 @@ if opt.toy ~= 0 then
 			opt.t_input_size,
 			opt.image_set_size,
 			opt.min_filled_image_set_size
-   )
+      )
 else
 -- REAL DATA PROCESSING
    -- reading word embeddings
@@ -268,7 +279,7 @@ end
 ******* testing/validation function *******
 --]]
 
-function test(test_word_query_list,test_image_set_list,test_index_list)
+function test(test_word_query_list,test_image_set_list,test_index_list,output_print_file)
 
    -- passing all test samples through the trained network
    local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
@@ -277,7 +288,7 @@ function test(test_word_query_list,test_image_set_list,test_index_list)
 
    -- to compute accuracy, we first retrieve list of indices of image
    -- vectors that were preferred by the model
-   local _,model_guesses=torch.max(model_prediction,2)
+   local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
    -- we then count how often this guesses are the same as the gold
    -- (and thus the difference is 0) (note conversions to long because
    -- model_guesses is long tensor)
@@ -286,6 +297,15 @@ function test(test_word_query_list,test_image_set_list,test_index_list)
 	       torch.Tensor(model_guesses:size(1)):zero():long()))
    -- normalizing accuracy by test set size
    local accuracy=hit_count/test_word_query_list:size(1)
+
+   --if requested, print guesses and their log probs to file
+   if output_print_file then
+         local f = io.open(output_print_file,"w")
+	 for i=1,model_max_log_probs:size(1) do
+	    f:write(model_guesses[i][1]," ",model_max_log_probs[i][1],"\n")
+	 end
+	 f.close()
+   end
    return average_loss,accuracy
 end
 
@@ -333,7 +353,7 @@ while (continue_training==1) do
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
    -- validation
-   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list)
+   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,nil)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
@@ -363,9 +383,18 @@ end
 
 -- training is over, now, if test data are available, we can report
 -- performance on them
+
 if (opt.test_set_size>0) then
    print('training done and test data available...')
-   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list)
+   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,output_guesses_file)
    print('test loss: ' .. test_loss)
    print('test accuracy: ' .. test_accuracy)
 end
+
+
+-- temporary hack
+-- print('training done and test data available...')
+-- local test_loss,test_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,output_guesses_file)
+-- print('test loss: ' .. test_loss)
+-- print('test accuracy: ' .. test_accuracy)
+
