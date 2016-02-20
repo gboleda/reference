@@ -289,6 +289,7 @@ function test(test_word_query_list,test_image_set_list,test_index_list,output_pr
    -- to compute accuracy, we first retrieve list of indices of image
    -- vectors that were preferred by the model
    local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
+   local model_max_probs=torch.exp(model_max_log_probs)
    -- we then count how often this guesses are the same as the gold
    -- (and thus the difference is 0) (note conversions to long because
    -- model_guesses is long tensor)
@@ -301,9 +302,10 @@ function test(test_word_query_list,test_image_set_list,test_index_list,output_pr
    --if requested, print guesses and their log probs to file
    if output_print_file then
          local f = io.open(output_print_file,"w")
-	 for i=1,model_max_log_probs:size(1) do
-	    f:write(model_guesses[i][1]," ",model_max_log_probs[i][1],"\n")
+	 for i=1,model_max_probs:size(1) do
+	    f:write(model_guesses[i][1]," ",model_max_probs[i][1],"\n")
 	 end
+	 f:flush()
 	 f.close()
    end
    return average_loss,accuracy
@@ -390,11 +392,4 @@ if (opt.test_set_size>0) then
    print('test loss: ' .. test_loss)
    print('test accuracy: ' .. test_accuracy)
 end
-
-
--- temporary hack
--- print('training done and test data available...')
--- local test_loss,test_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,output_guesses_file)
--- print('test loss: ' .. test_loss)
--- print('test accuracy: ' .. test_accuracy)
 
