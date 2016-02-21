@@ -37,12 +37,13 @@ cmd:option('--normalize_embeddings',0, 'whether to normalize word and image repr
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
 cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume there are no test data)')
 cmd:option('--output_guesses_file','','if this file is defined, at test time we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
-
+cmd:option('--skip_test_loss',0,'if set to value different from 0, loss will not be calculated on test data (to deal with deviant conditions)')
 -- the following options are only used if we work with toy data such
 -- that we generate a training and a validation set, rather than
 -- reading them
 cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
 cmd:option('--t_input_size',0, 'word embedding size')
+
 -- model parameters
 local mst = {ff_ref=true, max_margin_bl=true}
 local msg='model, to choose from: '
@@ -88,8 +89,14 @@ if opt.output_guesses_file~='' then
    output_guesses_file=opt.output_guesses_file
 end
 -- if test size is 0, we won't output test guesses to a file
-if ((opt.test_set_size == 0) and (output_guesses_file)) then
-   print('WARNING: you requested to print test guesses to file ' .. output_guesses_file .. ' but no test set is expected... ignoring your request')
+-- and it makes no sense to pass the skip_test_loss option
+if (opt.test_set_size == 0) then
+   if (output_guesses_file) then
+      print('WARNING: you requested to print test guesses to file ' .. output_guesses_file .. ' but no test set is expected... ignoring your request')
+   end
+   if (opt.skip_test_loss) then
+      print('WARNING: you requested to skip loss calculation in test phase, but no test set is expected... ignoring your request')
+   end
 end
 
 if not mst[opt.model] then
@@ -279,12 +286,16 @@ end
 ******* testing/validation function *******
 --]]
 
-function test(test_word_query_list,test_image_set_list,test_index_list,output_print_file)
+function test(test_word_query_list,test_image_set_list,test_index_list,output_print_file,skip_test_loss)
 
    -- passing all test samples through the trained network
    local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
-   -- NB: according to documentation, the criterion function already normalizes loss!
-   local average_loss = criterion:forward(model_prediction,test_index_list)
+   local average_loss = math.huge
+   -- unless we are asked to skip it, compute loss
+   if (skip_test_loss == 0) then
+      -- NB: according to documentation, the criterion function already normalizes loss!
+      local average_loss = criterion:forward(model_prediction,test_index_list)
+   end
 
    -- to compute accuracy, we first retrieve list of indices of image
    -- vectors that were preferred by the model
@@ -355,7 +366,7 @@ while (continue_training==1) do
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
    -- validation
-   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,nil)
+   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,nil,0)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
@@ -388,8 +399,10 @@ end
 
 if (opt.test_set_size>0) then
    print('training done and test data available...')
-   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,output_guesses_file)
+   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,output_guesses_file,opt.skip_test_loss)
    print('test loss: ' .. test_loss)
-   print('test accuracy: ' .. test_accuracy)
+   if (opt.skip_test_loss == 0) then
+      print('test accuracy: ' .. test_accuracy)
+   end
 end
 
