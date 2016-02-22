@@ -24,7 +24,8 @@ while (<>) {
     elsif (/validation accuracy: ([0-9\.e\-]+)/) {
 	$validation_accuracy = $1;
 	print join "\t",($mini_batch_size,$reference_size,$momentum,$learning_rate,$epoch,$training_losss,
-			 $validation_loss,$validation_accuracy)
+			 $validation_loss,$validation_accuracy);
+	print "\n";
     }
 }
 
