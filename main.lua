@@ -306,9 +306,7 @@ function test(test_word_query_list,test_image_set_list,test_index_list,output_pr
    -- we then count how often this guesses are the same as the gold
    -- (and thus the difference is 0) (note conversions to long because
    -- model_guesses is long tensor)
-   local hit_count = torch.sum(
-      torch.eq(test_index_list:long()-model_guesses,
-	       torch.Tensor(model_guesses:size(1)):zero():long()))
+   local hit_count = torch.sum(torch.eq(test_index_list:long(),model_guesses))
    -- normalizing accuracy by test set size
    local accuracy=hit_count/test_word_query_list:size(1)
 
