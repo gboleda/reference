@@ -296,7 +296,7 @@ function test(test_word_query_list,test_image_set_list,test_index_list,output_pr
    -- unless we are asked to skip it, compute loss
    if (skip_test_loss == 0) then
       -- NB: according to documentation, the criterion function already normalizes loss!
-      local average_loss = criterion:forward(model_prediction,test_index_list)
+      average_loss = criterion:forward(model_prediction,test_index_list)
    end
 
    -- to compute accuracy, we first retrieve list of indices of image
