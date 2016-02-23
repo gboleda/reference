@@ -63,15 +63,15 @@ local model_max_probs=torch.exp(model_max_log_probs)
 -- we then count how often this guesses are the same as the gold
 -- (and thus the difference is 0) (note conversions to long because
 -- model_guesses is long tensor)
-local hit_count = torch.sum(torch.eq(test_index_list:long()-model_guesses,0))
+local hit_count = torch.sum(torch.eq(test_index_list:long(),model_guesses))
 -- normalizing accuracy by test set size
 local accuracy=hit_count/opt.test_set_size
 
-print('test set accuracy is ' ... accuracy)
+print('test set accuracy is ' .. accuracy)
 
 --if requested, print guesses and their log probs to file
-if output_print_file then
-   local f = io.open(output_print_file,"w")
+if output_guesses_file then
+   local f = io.open(output_guesses_file,"w")
    for i=1,model_max_probs:size(1) do
       f:write(model_guesses[i][1]," ",model_max_probs[i][1],"\n")
    end
