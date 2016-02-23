@@ -96,7 +96,7 @@ if (opt.test_set_size == 0) then
    if (output_guesses_file) then
       print('WARNING: you requested to print test guesses to file ' .. output_guesses_file .. ' but no test set is expected... ignoring your request')
    end
-   if (opt.skip_test_loss) then
+   if (opt.skip_test_loss ~= 0) then
       print('WARNING: you requested to skip loss calculation in test phase, but no test set is expected... ignoring your request')
    end
 end
