@@ -27,6 +27,8 @@ cmd:option('--image_set_size', 0, 'max number of images in a set')
 cmd:option('--training_set_size',0, 'training set size')
 cmd:option('--validation_set_size',0, 'validation set size')
 
+cmd:option('--save_model_to_file','', 'if a string is passed, after training has finished, the trained model is saved as binary file named like the string')
+
 -- decide if we want to work with toy or real data
 cmd:option('--toy',0,'work with toy data? (generated within the script); else, real data from files; default: 0; set to 1 if you want to use toy data')
 
@@ -406,3 +408,8 @@ if (opt.test_set_size>0) then
    end
 end
 
+-- finally, if we were asked to save the model to a file, not it's the
+-- time to do it
+if (opt.save_model_to_file ~= '') then
+   torch.save(opt.save_model_to_file,model)
+end
