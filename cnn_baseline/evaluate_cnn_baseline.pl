@@ -12,8 +12,8 @@ open GOLDFILE,shift;
 while (<GOLDFILE>) {
     chomp;
     @images = split "[\t ]+",$_;
-    $re = shift @F;
-    $gold_index = shift @F;
+    $re = shift @images;
+    $gold_index = shift @images;
     print $re,"\t",$gold_index;
     $gold_referent_count = 0;
     $index_match = 0;
@@ -30,6 +30,7 @@ while (<GOLDFILE>) {
 	    }
 	}
 	print "\t",$images[$i],"/",$guess;
+	$i++;
     }
     $model_output = "wrong_referent";
     if ($gold_referent_count==0) {
@@ -41,6 +42,7 @@ while (<GOLDFILE>) {
     elsif ($index_match) {
 	$model_output = "right_referent";
     }
+    print "\t",$model_output,"\n";
 }
 
 close GOLDFILE;
