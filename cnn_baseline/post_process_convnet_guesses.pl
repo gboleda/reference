@@ -12,7 +12,8 @@ while (<>) {
     $picked = "";
 
     foreach $guess (@guesses) {
-	$guess =~s/^ //;
+	$guess =~ s/^ //;
+	$guess = lc($guess);
 	if ($guess eq $gold) {
 	    $picked = $gold;
 	    $found_correct_match = 1;
