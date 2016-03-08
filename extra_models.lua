@@ -1,3 +1,5 @@
+require('Peek')
+
 -- feed-forward network with reference layer STABLE
 function ff_reference_with_reference_summary(t_inp_size,v_inp_size,img_set_size,ref_size)
 
@@ -36,19 +38,19 @@ function ff_reference_with_reference_summary(t_inp_size,v_inp_size,img_set_size,
                                                                    -- it when batches are passes
    local reference_matrix=nn.View(#reference_vectors,-1):setNumInputDims(1)(all_reference_values) -- again, note 
                                                                                                   -- setNumInputDims for
-                                                                                                  -- minibatch processing
-
    -- taking the dot product of each reference vector
    -- with the query vector
+   -- debug
    local dot_vector_split=nn.MM(false,true)({query_matrix,reference_matrix})
    local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
                                                                            -- processing
 
    -- at the same time, we will use the reference matrix to predict
    -- deviance
-   local averaged_reference_vector = nn.Mean(2,1):forward(reference_matrix)
+   local averaged_reference_vector = nn.Mean(1,2)(reference_matrix)
    local deviance_value = nn.Linear(ref_size,1)(averaged_reference_vector)
-   -- reshaping into 1 by 1 tensor for concatenation belwo
+
+   -- reshaping into 1 by 1 tensor for concatenation beloow
    local deviance_cell = nn.View(1,1)(deviance_value)
    -- concatenating
    local extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell})

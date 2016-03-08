@@ -47,7 +47,7 @@ cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be 
 cmd:option('--t_input_size',0, 'word embedding size')
 
 -- model parameters
-local mst = {ff_ref=true, max_margin_bl=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
@@ -234,8 +234,12 @@ elseif opt.model == 'max_margin_bl' then
    error('ERROR: still not implemented: ' .. tostring(opt.model))
    -- model=max_margin_baseline_model(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
    -- criterion=nn.MarginRankingCriterion()
+elseif opt.model == 'ff_ref_with_summary' then
+   model=ff_reference_with_reference_summary(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
+   -- we use the negative log-likelihood criterion (which expects LOG probabilities
+   -- as model outputs!)
+   criterion= nn.ClassNLLCriterion()
 end
-
 
 -- getting pointers to the model weights and their gradient
 model_weights, model_weight_gradients = model:getParameters()
