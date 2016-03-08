@@ -113,6 +113,7 @@ end
 
 print('reading the models file')
 dofile('models.lua')
+dofile('extra_models.lua') -- temp file for work in progress
 
 print('reading the data processing file')
 dofile('data.lua')
