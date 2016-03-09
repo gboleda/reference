@@ -170,6 +170,8 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- index_list contains, for each sample, the index of the correct
    -- image (the one corresponding to the word) into the corresponding
    -- ordered set of tensors in image_set_list
+   -- if a sample is deviant (with index 0 or -1), the corresponding index
+   -- will be image_set_size+1
    local index_list = torch.Tensor(data_set_size)
 
    local f = io.input(i_file)
@@ -179,7 +181,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
       if not lines then break end
       if rest then lines = lines .. rest .. '\n' end
       -- traversing current chunk line by line
-      local i=1 -- line counter
+--      local i=1 -- line counter
       for current_line in lines:gmatch("[^\n]+") do
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
@@ -188,6 +190,10 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	 -- fields image ids
 	 word_query_list[i]=word_embeddings[current_data[1]]
 	 index_list[i]=current_data[2]
+	 -- handling deviant cases
+	 if index_list[i]<1 then
+	    index_list[i]=  image_set_size+1
+	 end
 	 -- because there might be less images in current trial than
 	 -- the maximum (determined by image size) we only replace the
 	 -- 0s in the first n image_set_size tensors, where n is the number
