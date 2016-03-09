@@ -169,9 +169,11 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 
    -- index_list contains, for each sample, the index of the correct
    -- image (the one corresponding to the word) into the corresponding
-   -- ordered set of tensors in image_set_list
-   -- if a sample is deviant (with index 0 or -1), the corresponding index
-   -- will be image_set_size+1
+   -- ordered set of tensors in image_set_list 
+   -- if a sample is deviant (with index 0 or -1), the corresponding
+   -- index will be image_set_size+1, ONLY FOR MODELS THAT CAN HANDLE
+   -- DEVIANT CASES!!!!
+
    local index_list = torch.Tensor(data_set_size)
 
    local f = io.input(i_file)
@@ -192,7 +194,11 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	 index_list[i]=current_data[2]
 	 -- handling deviant cases
 	 if index_list[i]<1 then
-	    index_list[i]=  image_set_size+1
+	    if (opt.model=="ff_ref_with_summary") then
+	       index_list[i]=  image_set_size+1
+	    else
+	       error('ERROR: chosen model does not support deviance: ' .. tostring(opt.model))
+	    end
 	 end
 	 -- because there might be less images in current trial than
 	 -- the maximum (determined by image size) we only replace the
