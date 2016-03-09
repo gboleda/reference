@@ -117,8 +117,6 @@ dofile('extra_models.lua') -- temp file for work in progress
 
 print('reading the data processing file')
 dofile('data.lua')
-dofile('extra_data.lua') -- temp file for work in progress
-
 
 --[[
 ****** input data reading ******
