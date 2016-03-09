@@ -276,6 +276,9 @@ feval = function(x)
 
    -- take forward pass for current training batch
    local model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
+   -- debug
+   print(model_prediction)
+   print(batch_index_list)
    local loss = criterion:forward(model_prediction,batch_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)

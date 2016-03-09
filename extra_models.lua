@@ -1,5 +1,3 @@
-require('Peek')
-
 -- feed-forward network with reference layer STABLE
 function ff_reference_with_reference_summary(t_inp_size,v_inp_size,img_set_size,ref_size)
 
