@@ -20,6 +20,10 @@ cmd:option('--debug',0,'call special debug functions')
 -- in case this main script is launched from another directory (must include
 -- final slash!)
 -- gbt: why is it commented out?
+-- mb: because it was complicated to make sure that also the other files
+-- called from this one would be found, so I decided to keep running the
+-- program from its own directory, rather specifying the path to input and
+-- output files on the command line
 -- cmd:option('--codebase_path','','path to reference codebase, needed if main script is launched from elsewhere')
 
 -- the following options are used both with toy and with real data
@@ -47,12 +51,15 @@ cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be 
 cmd:option('--t_input_size',0, 'word embedding size')
 
 -- model parameters
-local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
 -- the following is only relevant for models with reference vectors
 cmd:option('--reference_size',80, 'size of reference vectors; for max margin baseline, recycled to give size of mapped vectors')
+-- -- options for the model with the deviance detection layer only
+cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for deviance layer model: sigmoid by default, tanh is any other string is passed')
+cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')
 
 -- training parameters
 -- sgd hyperparameters (copying defaults from
@@ -234,6 +241,11 @@ elseif opt.model == 'max_margin_bl' then
    -- criterion=nn.MarginRankingCriterion()
 elseif opt.model == 'ff_ref_with_summary' then
    model=ff_reference_with_reference_summary(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
+   -- we use the negative log-likelihood criterion (which expects LOG probabilities
+   -- as model outputs!)
+   criterion= nn.ClassNLLCriterion()
+elseif opt.model == 'ff_ref_deviance' then
+   model=ff_reference_with_deviance_layer(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
