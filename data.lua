@@ -194,7 +194,8 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	 index_list[i]=current_data[2]
 	 -- handling deviant cases
 	 if index_list[i]<1 then
-	    if (opt.model=="ff_ref_with_summary") then
+	    if ((opt.model=="ff_ref_with_summary") or 
+	       (opt.model=="ff_ref_deviance")) then
 	       index_list[i]=  image_set_size+1
 	    else
 	       error('ERROR: chosen model does not support deviance: ' .. tostring(opt.model))
