@@ -51,7 +51,7 @@ cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be 
 cmd:option('--t_input_size',0, 'word embedding size')
 
 -- model parameters
-local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
@@ -89,6 +89,14 @@ print(opt)
 -- chunks to read files into
 BUFSIZE = 2^23 -- 1MB
 
+-- here, list models that can handle deviance, for appropriate data
+-- reading
+model_can_handle_deviance=0
+if ((opt.model=="ff_ref_with_summary") or 
+   (opt.model=="ff_ref_deviance") or
+   (opt.model=="ff_ref_sim_sum")) then
+   model_can_handle_deviance=1
+end
 
 --[[
 ****** checking command-line arguments ******
@@ -246,6 +254,11 @@ elseif opt.model == 'ff_ref_with_summary' then
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_deviance' then
    model=ff_reference_with_deviance_layer(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
+   -- we use the negative log-likelihood criterion (which expects LOG probabilities
+   -- as model outputs!)
+   criterion= nn.ClassNLLCriterion()
+elseif opt.model == 'ff_ref_sim_sum' then
+   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
