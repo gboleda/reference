@@ -15,7 +15,7 @@ cmd:option('--test_file','','format: one stimulus set per line: first field ling
 cmd:option('--test_set_size',10, 'test set size')
 -- we need to know the model that was used for training, since this affects
 -- oov handling
-local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
@@ -33,6 +33,14 @@ end
 -- chunks to read files into
 BUFSIZE = 2^23 -- 1MB
 
+-- here, list models that can handle deviance, for appropriate data
+-- reading
+model_can_handle_deviance=0
+if ((opt.model=="ff_ref_with_summary") or 
+   (opt.model=="ff_ref_deviance") or
+   (opt.model=="ff_ref_sim_sum")) then
+   model_can_handle_deviance=1
+end
 
 
 print('reading the data processing file')
