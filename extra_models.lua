@@ -185,8 +185,6 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
    -- a sigmoid...
    local adimensional_sum_of_dot_vectors=nil
    if (sum_of_sigmoids == 1) then
-      --debug
-      print('using sum of sigmoids')
       local sigmoided_dot_vector = nn.Sigmoid()(dot_vector)
       adimensional_sum_of_dot_vectors=nn.Sum(1,1)(sigmoided_dot_vector) -- usual Torch silliness...
    else
