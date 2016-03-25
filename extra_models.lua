@@ -135,7 +135,7 @@ end
 
 -- feed-forward network with reference layer and deviance layer on top of 
 -- sum of dot products
-function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_size,ref_size,deviance_size,nonlinearity)
+function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_size,ref_size,deviance_size,nonlinearity,sum_of_sigmoids)
 
    local inputs = {}
    local reference_vectors = {}
@@ -181,7 +181,15 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
 
    -- we have a layer on top of the sum of dot vectors to reason about
    -- deviance
-   local adimensional_sum_of_dot_vectors=nn.Sum(1,1)(dot_vector) -- usual Torch silliness...
+   -- if we set the sum_of_sigmoids flag, we first pass the dot_vector through
+   -- a sigmoid...
+   local adimensional_sum_of_dot_vectors=nil
+   if (sum_of_sigmoids == 1) then
+      local sigmoided_dot_vector = nn.Sigmoid()(dot_vector)
+      adimensional_sum_of_dot_vectors=nn.Sum(1,1)(sigmoided_dot_vector) -- usual Torch silliness...
+   else
+      adimensional_sum_of_dot_vectors=nn.Sum(1,1)(dot_vector) -- usual Torch silliness...
+   end
    local sum_of_dot_vectors=nn.View(-1,1)(adimensional_sum_of_dot_vectors)
    local deviance_layer = nn.Linear(1,deviance_size)(sum_of_dot_vectors)
    local nonlinear_deviance_layer = nil

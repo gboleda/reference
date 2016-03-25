@@ -60,6 +60,8 @@ cmd:option('--reference_size',80, 'size of reference vectors; for max margin bas
 -- -- options for the model with the deviance detection layer only
 cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for deviance layer model: sigmoid by default, tanh is any other string is passed')
 cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')
+-- -- option for ff_ref_sim_sum only
+cmd:option('--sum_of_sigmoids',0,'whether in ff_ref_sim_sum model similarities should be filtered by sigmoids before being fed to the deviance layer')
 
 -- training parameters
 -- sgd hyperparameters (copying defaults from
@@ -258,7 +260,7 @@ elseif opt.model == 'ff_ref_deviance' then
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum' then
-   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
+   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_sigmoids)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
