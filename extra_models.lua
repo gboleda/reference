@@ -202,8 +202,15 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
 
    -- reshaping into 1 by 1 tensor for concatenation beloow
    local deviance_cell = nn.View(1,1)(deviance_value)
+
+   local extended_dot_vector = nil
    -- concatenating
-   local extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell})
+   if (opt.debug==1) then
+      extended_dot_vector_for_peeking = nn.JoinTable(2)({dot_vector,deviance_cell})
+      extended_dot_vector = nn.Peek(extended_dot_vector_for_peeking)
+   else
+      extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell})
+   end
 
    -- transforming the dot products into LOG probabilities via a
    -- softmax (log for compatibility with the ClassNLLCriterion)
