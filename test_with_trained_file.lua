@@ -83,11 +83,17 @@ local accuracy=hit_count/opt.test_set_size
 
 print('test set accuracy is ' .. accuracy)
 
---if requested, print guesses and their log probs to file
+--if requested, print guesses, their probs and the overall prob distribution 
+--to file
 if output_guesses_file then
+   local all_probs=torch.exp(model_prediction)
    local f = io.open(output_guesses_file,"w")
    for i=1,model_max_probs:size(1) do
-      f:write(model_guesses[i][1]," ",model_max_probs[i][1],"\n")
+      f:write(model_guesses[i][1]," ",model_max_probs[i][1])
+      for j=1,all_probs:size(2) do
+	 f:write(" ",all_probs[i][j])
+      end
+      f:write("\n")
    end
    f:flush()
    f.close()
