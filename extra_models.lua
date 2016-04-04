@@ -206,6 +206,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
    local extended_dot_vector = nil
    -- concatenating
    if (opt.debug==1) then
+      print('debug mode')
       extended_dot_vector_for_peeking = nn.JoinTable(2)({dot_vector,deviance_cell})
       extended_dot_vector = nn.Peek(extended_dot_vector_for_peeking)
    else
