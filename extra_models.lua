@@ -174,7 +174,6 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
                                                                                                   -- setNumInputDims for
    -- taking the dot product of each reference vector
    -- with the query vector
-   -- debug
    local dot_vector_split=nn.MM(false,true)({query_matrix,reference_matrix})
    local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
                                                                            -- processing
@@ -205,13 +204,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
 
    local extended_dot_vector = nil
    -- concatenating
-   if (opt.debug==1) then
-      print('debug mode')
-      extended_dot_vector_for_peeking = nn.JoinTable(2)({dot_vector,deviance_cell})
-      extended_dot_vector = nn.Peek(extended_dot_vector_for_peeking)
-   else
-      extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell})
-   end
+   extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell})
 
    -- transforming the dot products into LOG probabilities via a
    -- softmax (log for compatibility with the ClassNLLCriterion)

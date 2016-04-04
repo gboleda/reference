@@ -22,7 +22,7 @@ cmd:option('--model','ff_ref', msg)
 -- output file
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 -- other options
-cmd:option('--debug',0,'set to 1 to go through code flagged as for debugging')
+cmd:option('--debug',0,'set to 1 to go through code flagged as for debugging') -- currently not used
 opt = cmd:parse(arg or {})
 print(opt)
 
