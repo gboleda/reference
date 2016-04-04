@@ -143,7 +143,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
    -- text input
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
-   local query = nn.LinearNB(t_inp_size, ref_size)(curr_input)
+   local query = nn.LinearNB(t_inp_size, ref_size)(curr_input):annotate{name='query'}
 
    -- reshaping the ref_size-dimensional text vector into 
    -- a 1xref_size-dimensional vector for the multiplication below
@@ -170,7 +170,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
                                                                    -- the expected inputs in the table are one-dimensional (the
                                                                    --  reference vectors), necessary not to confuse 
                                                                    -- it when batches are passes
-   local reference_matrix=nn.View(#reference_vectors,-1):setNumInputDims(1)(all_reference_values) -- again, note 
+   local reference_matrix=nn.View(#reference_vectors,-1):setNumInputDims(1)(all_reference_values):annotate{name='reference_matrix'} -- again, note 
                                                                                                   -- setNumInputDims for
    -- taking the dot product of each reference vector
    -- with the query vector
@@ -190,7 +190,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
       adimensional_sum_of_dot_vectors=nn.Sum(1,1)(dot_vector) -- usual Torch silliness...
    end
    local sum_of_dot_vectors=nn.View(-1,1)(adimensional_sum_of_dot_vectors)
-   local deviance_layer = nn.Linear(1,deviance_size)(sum_of_dot_vectors)
+   local deviance_layer = nn.Linear(1,deviance_size)(sum_of_dot_vectors):annotate{name='deviance_layer'}
    local nonlinear_deviance_layer = nil
    if (nonlinearity == 'sigmoid') then
       nonlinear_deviance_layer = nn.Sigmoid()(deviance_layer)
@@ -204,7 +204,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
 
    local extended_dot_vector = nil
    -- concatenating
-   extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell})
+   extended_dot_vector = nn.JoinTable(2)({dot_vector,deviance_cell}):annotate{name='extended_dot_vector'}
 
    -- transforming the dot products into LOG probabilities via a
    -- softmax (log for compatibility with the ClassNLLCriterion)

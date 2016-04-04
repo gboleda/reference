@@ -22,7 +22,7 @@ cmd:option('--model','ff_ref', msg)
 -- output file
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 -- other options
-cmd:option('--debug',0,'set to 1 to go through code flagged as for debugging') -- currently not used
+cmd:option('--debug',0,'set to 1 to go through code flagged as for debugging')
 opt = cmd:parse(arg or {})
 print(opt)
 
@@ -85,15 +85,31 @@ local accuracy=hit_count/opt.test_set_size
 
 print('test set accuracy is ' .. accuracy)
 
+
 --if requested, print guesses, their probs and the overall prob distribution 
 --to file
 if output_guesses_file then
    local all_probs=torch.exp(model_prediction)
+   -- in debug mode, we also return dot vectors and deviance cell
+   local extended_dot_vector = nil
+   if (opt.debug==1) then
+      local nodes = model:listModules()[1]['forwardnodes']
+      for _,node in ipairs(nodes) do
+	 if node.data.annotations.name=='extended_dot_vector' then
+	    extended_dot_vector = node.data.module.output
+	 end
+      end
+   end
    local f = io.open(output_guesses_file,"w")
    for i=1,model_max_probs:size(1) do
       f:write(model_guesses[i][1]," ",model_max_probs[i][1])
       for j=1,all_probs:size(2) do
 	 f:write(" ",all_probs[i][j])
+      end
+      if (opt.debug==1) then
+	 for k=1,extended_dot_vector:size(2) do
+	    f:write(" ",extended_dot_vector[i][k])
+	 end
       end
       f:write("\n")
    end
