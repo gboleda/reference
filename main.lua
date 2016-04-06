@@ -100,6 +100,14 @@ if ((opt.model=="ff_ref_with_summary") or
    model_can_handle_deviance=1
 end
 
+-- here, list models that need information about number of input
+-- images, so that for the other models we can reset the list
+-- containing this information
+model_needs_real_image_count=0
+if (opt.model=="ff_ref_sim_sum") then
+   model_needs_real_image_count=1
+end
+
 --[[
 ****** checking command-line arguments ******
 --]]
@@ -175,36 +183,48 @@ else
    -- reading in the training data
    training_word_query_list,
    training_image_set_list,
-   training_index_list=
+   training_index_list,
+   training_non0_slots_count_list=
       create_input_structures_from_file(
 	 opt.protocol_prefix .. ".train",
 	 opt.training_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
+   if (model_needs_real_image_count==0) then
+         training_non0_slots_count_list=nil
+   end
 
    -- reading in the validation data
    validation_word_query_list,
    validation_image_set_list,
-   validation_index_list=
+   validation_index_list,   
+   validation_non0_slots_count_list=
       create_input_structures_from_file(
 	 opt.protocol_prefix .. ".valid",
 	 opt.validation_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
+   if (model_needs_real_image_count==0) then
+         validation_non0_slots_count_list=nil
+   end
 
    -- finally, if we have test data, we load them as well
    if (opt.test_set_size>0) then
       test_word_query_list,
       test_image_set_list,
-      test_index_list=
+      test_index_list,
+      test_non0_slots_count_list=
 	 create_input_structures_from_file(
 	    opt.protocol_prefix .. ".test",
 	    opt.test_set_size,
 	    t_input_size,
 	    v_input_size,
 	    opt.image_set_size)
+      if (model_needs_real_image_count==0) then
+         test_non0_slots_count_list=nil
+      end
    end
 end
 
@@ -296,18 +316,38 @@ feval = function(x)
    -- which samples are in current batch
    local batch_word_query_list=training_word_query_list:index(1,current_batch_indices)
    local batch_index_list=training_index_list:index(1,current_batch_indices)
+   local batch_non0_slots_count_list=nil
+   -- only if model is using this info, we also pass number of real images
+   if model_needs_real_image_count==1 then
+      batch_non0_slots_count_list=training_non0_slots_count_list:index(1,current_batch_indices)
+--      batch_non0_slots_count_list:resize(batch_non0_slots_count_list:size(1),1)
+   end
    local batch_image_set_list={}
    for j=1,opt.image_set_size do
       table.insert(batch_image_set_list,training_image_set_list[j]:index(1, current_batch_indices))
    end
 
    -- take forward pass for current training batch
-   local model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
+   local model_prediction=nil
+   -- only if model needs it, we also pass number of real images
+   if model_needs_real_image_count==1 then
+      --debug
+      print(batch_non0_slots_count_list)
+      model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list),batch_non0_slots_count_list})
+   else
+      model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
+   end
    local loss = criterion:forward(model_prediction,batch_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
    local loss_gradient = criterion:backward(model_prediction,batch_index_list)
-   model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
+   -- if model needed it, we also passed number of real
+   -- images as input
+   if model_needs_real_image_count==1 then
+      model:backward({batch_word_query_list,unpack(batch_image_set_list),batch_non0_slots_count_list},loss_gradient)
+   else
+      model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
+   end
 
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
@@ -319,10 +359,17 @@ end
 ******* testing/validation function *******
 --]]
 
-function test(test_word_query_list,test_image_set_list,test_index_list,output_print_file,skip_test_loss)
+function test(test_word_query_list,test_image_set_list,test_index_list,test_non0_slots_count_list,output_print_file,skip_test_loss)
 
    -- passing all test samples through the trained network
-   local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+   local model_prediction=nil
+   if model_needs_real_image_count then -- only in this case
+				       -- test_non0_slots_count_list
+				       -- is non-nil
+      model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)},test_non0_slots_count_list)
+   else
+      model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+   end
    local average_loss = math.huge
    -- unless we are asked to skip it, compute loss
    if (skip_test_loss == 0) then
@@ -397,7 +444,7 @@ while (continue_training==1) do
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
    -- validation
-   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,nil,0)
+   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,validation_non0_slots_count_list,nil,0)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
@@ -430,7 +477,7 @@ end
 
 if (opt.test_set_size>0) then
    print('training done and test data available...')
-   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,output_guesses_file,opt.skip_test_loss)
+   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,test_non0_slots_count_list,output_guesses_file,opt.skip_test_loss)
    print('test loss: ' .. test_loss)
    if (opt.skip_test_loss == 0) then
       print('test accuracy: ' .. test_accuracy)
