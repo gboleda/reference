@@ -44,6 +44,15 @@ if ((opt.model=="ff_ref_with_summary") or
    model_can_handle_deviance=1
 end
 
+-- here, list models that need information about number of input
+-- images, so that for the other models we can reset the list
+-- containing this information and we feed the right data to the
+-- various models
+model_needs_real_image_count=0
+if (opt.model=="ff_ref_sim_sum") then
+   model_needs_real_image_count=1
+end
+
 
 print('reading the data processing file')
 dofile('data.lua')
