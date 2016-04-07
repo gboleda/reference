@@ -48,7 +48,7 @@ cmd:option('--skip_test_loss',0,'if set to value different from 0, loss will not
 -- that we generate a training and a validation set, rather than
 -- reading them
 cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be filled, not padded with zeroes (if it is higher than image set size, it is re-set to the latter')
-cmd:option('--t_input_size',0, 'word embedding size')
+cmd:option('--t_input_size',0, 'word embedding size; only used in toy data mode')
 
 -- model parameters
 local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true}
@@ -126,6 +126,10 @@ if opt.toy ~= 0 then
    end
 end
 
+--[[
+****** loading models, data handling functions ******
+--]]
+
 print('reading the models file')
 dofile('models.lua')
 dofile('extra_models.lua') -- temp file for work in progress
@@ -138,7 +142,7 @@ dofile('data.lua')
 --]]
 
 -- NB: This goes before initializations bc some parameters needed to
--- intialize athe models are initialized during data reading
+-- intialize the models are initialized during data reading
 
 print('preparing the data')
 local t_input_size=0
@@ -161,8 +165,10 @@ if opt.toy ~= 0 then
 			opt.image_set_size,
 			opt.min_filled_image_set_size
       )
-else
+
 -- REAL DATA PROCESSING
+   -- here put elseif and change depending on model (ff_ref or max_margin)
+else
    -- reading word embeddings
    word_embeddings,t_input_size=
       load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
@@ -245,8 +251,13 @@ if opt.model == 'ff_ref' then
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'max_margin_bl' then
    error('ERROR: still not implemented: ' .. tostring(opt.model))
-   -- model=max_margin_baseline_model(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
-   -- criterion=nn.MarginRankingCriterion()
+   -- model=max_margin_baseline_model(t_input_size,v_input_size,opt.reference_size)
+   -- Creates a criterion that measures the loss given an input x = {x1,
+   -- x2}, a table of two Tensors of size 1 (they contain only scalars),
+   -- and a label y (1 or -1). In batch mode, x is a table of two Tensors
+   -- of size batchsize, and y is a Tensor of size batchsize containing 1
+   -- or -1 for each corresponding pair of elements in the input Tensor.
+   -- criterion=nn.MarginRankingCriterion(0.1) -- gbt: for the moment parameter hard coded, to fix
 elseif opt.model == 'ff_ref_with_summary' then
    model=ff_reference_with_reference_summary(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
@@ -290,28 +301,39 @@ feval = function(x)
    -- reset gradients
    model_weight_gradients:zero()
 
-   -- this assumes there is a current_batch_indices tensor telling us
-   -- which samples are in current batch
+   -- this assumes there is a current_batch_indices tensor telling
+   -- us which samples are in current batch
    local batch_word_query_list=training_word_query_list:index(1,current_batch_indices)
    local batch_index_list=training_index_list:index(1,current_batch_indices)
    local batch_image_set_list={}
    for j=1,opt.image_set_size do
       table.insert(batch_image_set_list,training_image_set_list[j]:index(1, current_batch_indices))
    end
+   local model_input_table=nil
+   local model_output_table=nil   
+   if opt.model=='ff_ref' then
+      model_input_table={batch_word_query_list,unpack(batch_image_set_list)}
+      model_output_table=batch_index_list
+   -- elseif opt.model='max_margin_bl' then
+   --    for k=1,opt.image_set_size do
+   -- 	 table.insert(
+   end
 
    -- take forward pass for current training batch
-   local model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
-   local loss = criterion:forward(model_prediction,batch_index_list)
+   local model_prediction=model:forward(model_input_table)
+   local loss = criterion:forward(model_prediction,model_output_table)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
-   local loss_gradient = criterion:backward(model_prediction,batch_index_list)
-   model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
+   local loss_gradient = criterion:backward(model_prediction,model_output_table)
+   model:backward(model_input_table,loss_gradient)
 
+   -- local model_prediction=model:forward({q,t,c1})
+   -- local loss = crit:forward(model_prediction, -1)
+   
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
    return loss,model_weight_gradients
 end
-
 
 --[[
 ******* testing/validation function *******
@@ -435,7 +457,7 @@ if (opt.test_set_size>0) then
    end
 end
 
--- finally, if we were asked to save the model to a file, not it's the
+-- finally, if we were asked to save the model to a file, now it's the
 -- time to do it
 if (opt.save_model_to_file ~= '') then
    torch.save(opt.save_model_to_file,model)

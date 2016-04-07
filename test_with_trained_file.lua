@@ -42,13 +42,12 @@ if ((opt.model=="ff_ref_with_summary") or
    model_can_handle_deviance=1
 end
 
-
 print('reading the data processing file')
 dofile('data.lua')
 
 print('preparing data')
 
--- readng word embeddings
+-- reading word embeddings
 word_embeddings,t_input_size=
    load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
 --reading image embeddings
@@ -74,7 +73,7 @@ local model_prediction=model:forward({test_word_query_list,unpack(test_image_set
 -- vectors that were preferred by the model
 local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
 local model_max_probs=torch.exp(model_max_log_probs)
--- we then count how often this guesses are the same as the gold
+-- we then count how often these guesses are the same as the gold
 -- (and thus the difference is 0) (note conversions to long because
 -- model_guesses is long tensor)
 local hit_count = torch.sum(torch.eq(test_index_list:long(),model_guesses))
