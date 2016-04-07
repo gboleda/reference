@@ -67,18 +67,31 @@ image_embeddings,v_input_size=
 -- lodading test data
 test_word_query_list,
 test_image_set_list,
-test_index_list= create_input_structures_from_file(opt.test_file,
-						   opt.test_set_size,
-						   t_input_size,
-						   v_input_size,
-						   opt.image_set_size)
+test_index_list,
+test_non0_slots_count_list = create_input_structures_from_file(opt.test_file,
+							       opt.test_set_size,
+							       t_input_size,
+							       v_input_size,
+							       opt.image_set_size)
+if (model_needs_real_image_count==0) then
+   test_non0_slots_count_list=nil
+end
+
 print('reading in the model')
 model = torch.load(opt.model_file)
 
 print('computing model prediction on test data')
 
 -- passing all test samples through the trained network
-local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+local model_prediction=nil
+if model_needs_real_image_count == 1 then -- only in this case
+   -- test_non0_slots_count_list
+   -- is non-nil
+   test_non0_slots_count_list:resize(test_non0_slots_count_list:size(1),1)
+   model_prediction=model:forward({test_non0_slots_count_list,test_word_query_list,unpack(test_image_set_list)})
+else
+   model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+end
 
 -- to compute accuracy, we first retrieve list of indices of image
 -- vectors that were preferred by the model
