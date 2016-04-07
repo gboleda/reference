@@ -21,6 +21,8 @@ for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
 -- output file
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
+-- other options
+cmd:option('--debug',0,'set to 1 to go through code flagged as for debugging')
 opt = cmd:parse(arg or {})
 print(opt)
 
@@ -40,6 +42,15 @@ if ((opt.model=="ff_ref_with_summary") or
    (opt.model=="ff_ref_deviance") or
    (opt.model=="ff_ref_sim_sum")) then
    model_can_handle_deviance=1
+end
+
+-- here, list models that need information about number of input
+-- images, so that for the other models we can reset the list
+-- containing this information and we feed the right data to the
+-- various models
+model_needs_real_image_count=0
+if (opt.model=="ff_ref_sim_sum") then
+   model_needs_real_image_count=1
 end
 
 print('reading the data processing file')
@@ -82,11 +93,33 @@ local accuracy=hit_count/opt.test_set_size
 
 print('test set accuracy is ' .. accuracy)
 
---if requested, print guesses and their log probs to file
+
+--if requested, print guesses, their probs and the overall prob distribution 
+--to file
 if output_guesses_file then
+   local all_probs=torch.exp(model_prediction)
+   -- in debug mode, we also return dot vectors and deviance cell
+   local extended_dot_vector = nil
+   if (opt.debug==1) then
+      local nodes = model:listModules()[1]['forwardnodes']
+      for _,node in ipairs(nodes) do
+	 if node.data.annotations.name=='extended_dot_vector' then
+	    extended_dot_vector = node.data.module.output
+	 end
+      end
+   end
    local f = io.open(output_guesses_file,"w")
    for i=1,model_max_probs:size(1) do
-      f:write(model_guesses[i][1]," ",model_max_probs[i][1],"\n")
+      f:write(model_guesses[i][1]," ",model_max_probs[i][1])
+      for j=1,all_probs:size(2) do
+	 f:write(" ",all_probs[i][j])
+      end
+      if (opt.debug==1) then
+	 for k=1,extended_dot_vector:size(2) do
+	    f:write(" ",extended_dot_vector[i][k])
+	 end
+      end
+      f:write("\n")
    end
    f:flush()
    f.close()

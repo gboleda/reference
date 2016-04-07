@@ -60,6 +60,8 @@ cmd:option('--reference_size',80, 'size of reference vectors; for max margin bas
 -- -- options for the model with the deviance detection layer only
 cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for deviance layer model: sigmoid by default, tanh is any other string is passed')
 cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')
+-- -- option for ff_ref_sim_sum only
+cmd:option('--sum_of_nonlinearities','none','whether in ff_ref_sim_sum model similarities should be filtered by a nonlinearity before being fed to the deviance layer: no filtering by default, with possible options sigmoid and relu')
 
 -- training parameters
 -- sgd hyperparameters (copying defaults from
@@ -96,6 +98,15 @@ if ((opt.model=="ff_ref_with_summary") or
    (opt.model=="ff_ref_deviance") or
    (opt.model=="ff_ref_sim_sum")) then
    model_can_handle_deviance=1
+end
+
+-- here, list models that need information about number of input
+-- images, so that for the other models we can reset the list
+-- containing this information and we feed the right data to the
+-- various models
+model_needs_real_image_count=0
+if (opt.model=="ff_ref_sim_sum") then
+   model_needs_real_image_count=1
 end
 
 --[[
@@ -179,36 +190,48 @@ else
    -- reading in the training data
    training_word_query_list,
    training_image_set_list,
-   training_index_list=
+   training_index_list,
+   training_non0_slots_count_list=
       create_input_structures_from_file(
 	 opt.protocol_prefix .. ".train",
 	 opt.training_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
+   if (model_needs_real_image_count==0) then
+         training_non0_slots_count_list=nil
+   end
 
    -- reading in the validation data
    validation_word_query_list,
    validation_image_set_list,
-   validation_index_list=
+   validation_index_list,   
+   validation_non0_slots_count_list=
       create_input_structures_from_file(
 	 opt.protocol_prefix .. ".valid",
 	 opt.validation_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
+   if (model_needs_real_image_count==0) then
+         validation_non0_slots_count_list=nil
+   end
 
    -- finally, if we have test data, we load them as well
    if (opt.test_set_size>0) then
       test_word_query_list,
       test_image_set_list,
-      test_index_list=
+      test_index_list,
+      test_non0_slots_count_list=
 	 create_input_structures_from_file(
 	    opt.protocol_prefix .. ".test",
 	    opt.test_set_size,
 	    t_input_size,
 	    v_input_size,
 	    opt.image_set_size)
+      if (model_needs_real_image_count==0) then
+         test_non0_slots_count_list=nil
+      end
    end
 end
 
@@ -269,7 +292,7 @@ elseif opt.model == 'ff_ref_deviance' then
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum' then
-   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
+   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
@@ -305,6 +328,12 @@ feval = function(x)
    -- us which samples are in current batch
    local batch_word_query_list=training_word_query_list:index(1,current_batch_indices)
    local batch_index_list=training_index_list:index(1,current_batch_indices)
+   local batch_non0_slots_count_list=nil
+   -- only if model is using this info, we also pass number of real images
+   if model_needs_real_image_count==1 then
+      batch_non0_slots_count_list=training_non0_slots_count_list:index(1,current_batch_indices)
+      batch_non0_slots_count_list:resize(batch_non0_slots_count_list:size(1),1)
+   end
    local batch_image_set_list={}
    for j=1,opt.image_set_size do
       table.insert(batch_image_set_list,training_image_set_list[j]:index(1, current_batch_indices))
@@ -320,12 +349,32 @@ feval = function(x)
    end
 
    -- take forward pass for current training batch
-   local model_prediction=model:forward(model_input_table)
-   local loss = criterion:forward(model_prediction,model_output_table)
+   -- BEGIN OLD, TO BE REMOVED GBT
+   -- local model_prediction=model:forward(model_input_table)
+   -- local loss = criterion:forward(model_prediction,model_output_table)
+   -- -- note that according to documentation, loss is already normalized by batch size
+   -- -- take backward pass (note that this is implicitly updating the weight gradients)
+   -- local loss_gradient = criterion:backward(model_prediction,model_output_table)
+   -- model:backward(model_input_table,loss_gradient)
+   -- END OLD, TO BE REMOVED GBT
+   local model_prediction=nil
+   -- only if model needs it, we also pass number of real images
+   if model_needs_real_image_count==1 then
+      model_prediction=model:forward({batch_non0_slots_count_list,batch_word_query_list,unpack(batch_image_set_list)})
+   else
+      model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
+   end
+   local loss = criterion:forward(model_prediction,batch_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
-   local loss_gradient = criterion:backward(model_prediction,model_output_table)
-   model:backward(model_input_table,loss_gradient)
+   local loss_gradient = criterion:backward(model_prediction,batch_index_list)
+   -- if model needed it, we also passed number of real
+   -- images as input
+   if model_needs_real_image_count==1 then
+      model:backward({batch_non0_slots_count_list,batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
+   else
+      model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
+   end
 
    -- local model_prediction=model:forward({q,t,c1})
    -- local loss = crit:forward(model_prediction, -1)
@@ -339,10 +388,18 @@ end
 ******* testing/validation function *******
 --]]
 
-function test(test_word_query_list,test_image_set_list,test_index_list,output_print_file,skip_test_loss)
+function test(test_word_query_list,test_image_set_list,test_index_list,test_non0_slots_count_list,output_print_file,skip_test_loss)
 
    -- passing all test samples through the trained network
-   local model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+   local model_prediction=nil
+   if model_needs_real_image_count == 1 then -- only in this case
+				       -- test_non0_slots_count_list
+				       -- is non-nil
+      test_non0_slots_count_list:resize(test_non0_slots_count_list:size(1),1)
+      model_prediction=model:forward({test_non0_slots_count_list,test_word_query_list,unpack(test_image_set_list)})
+   else
+      model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+   end
    local average_loss = math.huge
    -- unless we are asked to skip it, compute loss
    if (skip_test_loss == 0) then
@@ -417,16 +474,16 @@ while (continue_training==1) do
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
    -- validation
-   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,nil,0)
+   local validation_loss,validation_accuracy=test(validation_word_query_list,validation_image_set_list,validation_index_list,validation_non0_slots_count_list,nil,0)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
    -- *** gbt: remove 'if' below (simplify)
-   if (epoch_counter<=opt.min_epochs) then
-      continue_training=1
+--   if (epoch_counter<=opt.min_epochs) then
+--     continue_training=1
    -- if we have reached the max number of epochs, we stop no matter what
-   elseif (epoch_counter>=opt.max_epochs) then
+   if (epoch_counter>=opt.max_epochs) then
       continue_training=0
    -- if we are in the between epoch range, we must check that the
    -- current validation loss has not been in non-improving mode for
@@ -450,7 +507,7 @@ end
 
 if (opt.test_set_size>0) then
    print('training done and test data available...')
-   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,output_guesses_file,opt.skip_test_loss)
+   local test_loss,test_accuracy=test(test_word_query_list,test_image_set_list,test_index_list,test_non0_slots_count_list,output_guesses_file,opt.skip_test_loss)
    print('test loss: ' .. test_loss)
    if (opt.skip_test_loss == 0) then
       print('test accuracy: ' .. test_accuracy)
