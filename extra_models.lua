@@ -133,10 +133,15 @@ end
 
 -- feed-forward network with reference layer and deviance layer on top of 
 -- sum of dot products
-function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_size,ref_size,deviance_size,nonlinearity,sum_of_sigmoids)
+function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_size,ref_size,deviance_size,nonlinearity,sum_of_nonlinearities)
 
    local inputs = {}
    local reference_vectors = {}
+
+   -- first, we read in the number of real images (the other are 0
+   -- vectors used for padding)
+   local number_of_real_images = nn.Identity()()
+   table.insert(inputs,number_of_real_images)
 
    -- text input
    local curr_input = nn.Identity()()
@@ -176,26 +181,25 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
    local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
                                                                            -- processing
 
-   -- finally, we read in the number of real images (the other are 0
-   -- vectors used for padding)
-   local number_of_real_images = nn.Identity()()
-   table.insert(inputs,number_of_real_images)
 
    -- we have a layer on top of the sum of dot vectors and the number
    -- of real images to reason about deviance 
-   -- if we set the sum_of_sigmoids flag, we first pass the dot_vector through a
-   -- sigmoid...
+   -- if sum_of_nonlinearities is set to sigmoid or relu, we first pass the dot_vector through a
+   -- the relevant nonlinearity
    local adimensional_sum_of_dot_vectors=nil
-   if (sum_of_sigmoids == 1) then
-      local sigmoided_dot_vector = nn.Sigmoid()(dot_vector)
-      adimensional_sum_of_dot_vectors=nn.Sum(1,1)(sigmoided_dot_vector) -- usual Torch silliness...
+   if (sum_of_nonlinearities == 'sigmoid') then
+      local nonlinear_dot_vector = nn.Sigmoid()(dot_vector)
+      adimensional_sum_of_dot_vectors=nn.Sum(1,1)(nonlinear_dot_vector) -- usual Torch silliness...
+   elseif (sum_of_nonlinearities == 'relu') then
+      local nonlinear_dot_vector = nn.ReLU()(dot_vector)
+      adimensional_sum_of_dot_vectors=nn.Sum(1,1)(nonlinear_dot_vector) -- usual Torch silliness...
    else
       adimensional_sum_of_dot_vectors=nn.Sum(1,1)(dot_vector) -- usual Torch silliness...
    end
    local sum_of_dot_vectors=nn.View(-1,1)(adimensional_sum_of_dot_vectors)
+
    local deviance_layer_from_sum_of_dot_vectors = nn.Linear(1,deviance_size)(sum_of_dot_vectors)
    local deviance_layer_from_number_of_real_images = nn.Linear(1,deviance_size)(number_of_real_images)
-
    local deviance_layer = nn.CAddTable()({deviance_layer_from_sum_of_dot_vectors,deviance_layer_from_number_of_real_images}):annotate{name='deviance_layer'}
    local nonlinear_deviance_layer = nil
    if (nonlinearity == 'sigmoid') then

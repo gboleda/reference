@@ -61,7 +61,7 @@ cmd:option('--reference_size',80, 'size of reference vectors; for max margin bas
 cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for deviance layer model: sigmoid by default, tanh is any other string is passed')
 cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')
 -- -- option for ff_ref_sim_sum only
-cmd:option('--sum_of_sigmoids',0,'whether in ff_ref_sim_sum model similarities should be filtered by sigmoids before being fed to the deviance layer')
+cmd:option('--sum_of_nonlinearities','none','whether in ff_ref_sim_sum model similarities should be filtered by a nonlinearity before being fed to the deviance layer: no filtering by default, with possible options sigmoid and relu')
 
 -- training parameters
 -- sgd hyperparameters (copying defaults from
@@ -280,7 +280,7 @@ elseif opt.model == 'ff_ref_deviance' then
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum' then
-   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_sigmoids)
+   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
@@ -320,7 +320,7 @@ feval = function(x)
    -- only if model is using this info, we also pass number of real images
    if model_needs_real_image_count==1 then
       batch_non0_slots_count_list=training_non0_slots_count_list:index(1,current_batch_indices)
---      batch_non0_slots_count_list:resize(batch_non0_slots_count_list:size(1),1)
+      batch_non0_slots_count_list:resize(batch_non0_slots_count_list:size(1),1)
    end
    local batch_image_set_list={}
    for j=1,opt.image_set_size do
@@ -331,9 +331,7 @@ feval = function(x)
    local model_prediction=nil
    -- only if model needs it, we also pass number of real images
    if model_needs_real_image_count==1 then
-      --debug
-      print(batch_non0_slots_count_list)
-      model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list),batch_non0_slots_count_list})
+      model_prediction=model:forward({batch_non0_slots_count_list,batch_word_query_list,unpack(batch_image_set_list)})
    else
       model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
    end
@@ -344,7 +342,7 @@ feval = function(x)
    -- if model needed it, we also passed number of real
    -- images as input
    if model_needs_real_image_count==1 then
-      model:backward({batch_word_query_list,unpack(batch_image_set_list),batch_non0_slots_count_list},loss_gradient)
+      model:backward({batch_non0_slots_count_list,batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
    else
       model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
    end
@@ -363,10 +361,11 @@ function test(test_word_query_list,test_image_set_list,test_index_list,test_non0
 
    -- passing all test samples through the trained network
    local model_prediction=nil
-   if model_needs_real_image_count then -- only in this case
+   if model_needs_real_image_count == 1 then -- only in this case
 				       -- test_non0_slots_count_list
 				       -- is non-nil
-      model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)},test_non0_slots_count_list)
+      test_non0_slots_count_list:resize(test_non0_slots_count_list:size(1),1)
+      model_prediction=model:forward({test_non0_slots_count_list,test_word_query_list,unpack(test_image_set_list)})
    else
       model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
    end
@@ -450,10 +449,10 @@ while (continue_training==1) do
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
    -- *** gbt: remove 'if' below (simplify)
-   if (epoch_counter<=opt.min_epochs) then
-      continue_training=1
+--   if (epoch_counter<=opt.min_epochs) then
+--     continue_training=1
    -- if we have reached the max number of epochs, we stop no matter what
-   elseif (epoch_counter>=opt.max_epochs) then
+   if (epoch_counter>=opt.max_epochs) then
       continue_training=0
    -- if we are in the between epoch range, we must check that the
    -- current validation loss has not been in non-improving mode for
