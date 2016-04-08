@@ -64,12 +64,16 @@ cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevan
 cmd:option('--sum_of_nonlinearities','none','whether in ff_ref_sim_sum model similarities should be filtered by a nonlinearity before being fed to the deviance layer: no filtering by default, with possible options sigmoid and relu')
 
 -- training parameters
--- sgd hyperparameters (copying defaults from
+-- optimization method: sgd or adam
+cmd:option('--optimization_method','sgd','sgd by default, with adam as alternative')
+-- optimization hyperparameters (copying defaults from
 -- https://github.com/torch/demos/blob/master/logistic-regression/example-logistic-regression.lua)
+-- NB: only first will be used for adam
 cmd:option('--learning_rate',1e-3, 'learning rate')
 cmd:option('--weight_decay',0, 'weight decay')
 cmd:option('--momentum',0, 'momentum')
 cmd:option('--learning_rate_decay',1e-4, 'learning rate decay')
+--
 -- other training parameters
 -- magic gradient clipping value copied from Karpathy's char-rnn code
 cmd:option('--grad_clip',5, 'value to clip gradients at')
@@ -256,15 +260,22 @@ end
 ******* initializations *******
 --]]
 
--- the hyperparameters for plain sgd
--- possibly in the future we might want to switch
--- between SGD and other optimization routines
-local sgd_parameters = {
-   learningRate = opt.learning_rate,
-   weightDecay = opt.weight_decay,
-   momentum = opt.momentum,
-   learningRateDecay = opt.learning_rate_decay 
-}
+-- optimization hyperparameters
+local optimization_parameters = {}
+if (opt.optimization_method=="sgd") then
+   -- hyperparameters for plain sgd
+   optimization_parameters = {
+      learningRate = opt.learning_rate,
+      weightDecay = opt.weight_decay,
+      momentum = opt.momentum,
+      learningRateDecay = opt.learning_rate_decay 
+   }
+else -- currently only alternative is adam
+   optimization_parameters = {
+      learningRate = opt.learning_rate,
+   }
+end
+
 print('assembling and initializing the model')
 -- option-based switch to set model
 if opt.model == 'ff_ref' then
@@ -461,9 +472,14 @@ while (continue_training==1) do
    local batch_begin_index = 1
    while ((batch_begin_index+opt.mini_batch_size-1)<=training_index_list:size(1)) do
       current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
-      local _,losses = optim.sgd(feval,model_weights,sgd_parameters)
-      -- sgd returns only one loss
-      current_loss = current_loss + losses[1]
+      local losses={}
+      if (opt.optimization_method=="sgd") then
+	 _,losses = optim.sgd(feval,model_weights,optimization_parameters)
+      else -- for now, adam is only alternative
+	 _,losses = optim.adam(feval,model_weights,optimization_parameters)
+      end
+      -- sgd and adam actually return only one loss
+      current_loss = current_loss + losses[#losses]
       batch_begin_index=batch_begin_index+opt.mini_batch_size
    end
    
