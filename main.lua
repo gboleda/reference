@@ -337,27 +337,24 @@ feval = function(x)
 
    -- this assumes there is a current_batch_indices tensor telling
    -- us which samples are in current batch
-   local batch_word_query_list=training_word_query_list:index(1,current_batch_indices)
    local batch_index_list=training_index_list:index(1,current_batch_indices)
-   local batch_non0_slots_count_list=nil
+   local batch_input_table={}
    -- only if model is using this info, we also pass number of real images
    if model_needs_real_image_count==1 then
-      batch_non0_slots_count_list=training_non0_slots_count_list:index(1,current_batch_indices)
-      batch_non0_slots_count_list:resize(batch_non0_slots_count_list:size(1),1)
+      table.insert(batch_input_table,
+		   training_non0_slots_count_list:index(1,current_batch_indices):resize(opt.mini_batch_size,1))
    end
-   local batch_image_set_list={}
+   table.insert(batch_input_table,training_word_query_list:index(1,current_batch_indices))
    for j=1,opt.image_set_size do
-      table.insert(batch_image_set_list,training_image_set_list[j]:index(1, current_batch_indices))
+      table.insert(batch_input_table,training_image_set_list[j]:index(1, current_batch_indices))
    end
-   local model_input_table=nil
-   local model_output_table=nil   
-   if opt.model=='ff_ref' then
-      model_input_table={batch_word_query_list,unpack(batch_image_set_list)}
-      model_output_table=batch_index_list
+--   if opt.model=='ff_ref' then
+--      model_input_table={batch_word_query_list,unpack(batch_image_set_list)}
+--      model_output_table=batch_index_list
    -- elseif opt.model='max_margin_bl' then
    --    for k=1,opt.image_set_size do
    -- 	 table.insert(
-   end
+--   end
 
    -- take forward pass for current training batch
    -- BEGIN OLD, TO BE REMOVED GBT
@@ -370,22 +367,12 @@ feval = function(x)
    -- END OLD, TO BE REMOVED GBT
    local model_prediction=nil
    -- only if model needs it, we also pass number of real images
-   if model_needs_real_image_count==1 then
-      model_prediction=model:forward({batch_non0_slots_count_list,batch_word_query_list,unpack(batch_image_set_list)})
-   else
-      model_prediction=model:forward({batch_word_query_list,unpack(batch_image_set_list)})
-   end
+   model_prediction=model:forward(batch_input_table)
    local loss = criterion:forward(model_prediction,batch_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
    local loss_gradient = criterion:backward(model_prediction,batch_index_list)
-   -- if model needed it, we also passed number of real
-   -- images as input
-   if model_needs_real_image_count==1 then
-      model:backward({batch_non0_slots_count_list,batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
-   else
-      model:backward({batch_word_query_list,unpack(batch_image_set_list)},loss_gradient)
-   end
+   model:backward(batch_input_table,loss_gradient)
 
    -- local model_prediction=model:forward({q,t,c1})
    -- local loss = crit:forward(model_prediction, -1)
@@ -403,14 +390,17 @@ function test(test_word_query_list,test_image_set_list,test_index_list,test_non0
 
    -- passing all test samples through the trained network
    local model_prediction=nil
-   if model_needs_real_image_count == 1 then -- only in this case
-				       -- test_non0_slots_count_list
-				       -- is non-nil
-      test_non0_slots_count_list:resize(test_non0_slots_count_list:size(1),1)
-      model_prediction=model:forward({test_non0_slots_count_list,test_word_query_list,unpack(test_image_set_list)})
-   else
-      model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
+   local test_input_table={}
+   -- only if model is using this info, we also pass number of real images
+   if model_needs_real_image_count==1 then
+      table.insert(test_input_table,
+		   test_non0_slots_count_list:resize(test_index_list:size(1),1))
    end
+   table.insert(test_input_table,test_word_query_list)
+   for j=1,opt.image_set_size do
+      table.insert(test_input_table,test_image_set_list[j])
+   end
+   model_prediction=model:forward(test_input_table)
    local average_loss = math.huge
    -- unless we are asked to skip it, compute loss
    if (skip_test_loss == 0) then
