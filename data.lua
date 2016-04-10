@@ -230,13 +230,13 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 
    -- word_query_list is a data_set_sizext_input_size tensor holding 
    -- query word representations
-   local word_query_list = torch.Tensor(data_set_size,t_input_size)
-
-   -- if we are in the experiment with the modifiers, we also need a
-   -- data_set_sizext_input_size tensor holding the query modifiers
-   local modifier_query_list = nil
-   if (opt.modifier_mode==1) then
-      local modifier_query_list = torch.Tensor(data_set_size,t_input_size)
+   local word_query_list = nil
+   if (opt.modifier_mode==0) then
+      word_query_list=torch.Tensor(data_set_size,t_input_size)
+   else
+   -- if we are in the experiment with the modifiers, we will
+   -- concatenate modifier and head, so we must double the size
+      word_query_list=torch.Tensor(data_set_size,t_input_size*2)
    end
 
    -- image_set_list is an image_set_size table of data_set_sizex
@@ -244,17 +244,14 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- tensors will contain an image representation supposed to be in
    -- the ith set (sets ordered as the corresponding words in the same
    -- positions of word_query_list)
+   -- if we have modifiers, size will be that of word+image embedding
    local image_set_list={}
    -- initializing the tensors with zeroes
    for i=1,image_set_size do
-      table.insert(image_set_list,torch.Tensor(data_set_size,v_input_size):zero())
-   end
-   -- again, we construct a "mirror" with the same structure (but 
-   -- t_input_size tensors) if we have modifiers
-   local modifier_image_set_list = {}
-   if (opt.modifier_mode==1) then
-      for i=1,image_set_size do
-	 table.insert(modifier_image_set_list,torch.Tensor(data_set_size,t_input_size):zero())
+      if (opt.modifier_mode==0) then
+	 table.insert(image_set_list,torch.Tensor(data_set_size,v_input_size):zero())
+      else
+	 table.insert(image_set_list,torch.Tensor(data_set_size,t_input_size+v_input_size):zero())
       end
    end
 
@@ -288,10 +285,9 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
 	 -- first field is word id (or modifier:word id if in modifier mode), second field gold index, other
 	 -- fields image ids (or modifier:image ids if in modifier mode)
-	 if (modifier_mode==1) then
+	 if (opt.modifier_mode==1) then
 	    local modifier_head=current_data[1]:split(":")
-	    modifier_query_list[i]=word_embeddings[modifier_head[1]]
-	    word_query_list[i]=word_embeddings[modifier_head[2]]
+	    word_query_list[i]=torch.cat(word_embeddings[modifier_head[1]],word_embeddings[modifier_head[2]],1)
 	 else
 	    word_query_list[i]=word_embeddings[current_data[1]]
 	 end
@@ -310,14 +306,13 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	 -- the maximum (determined by image size) we only replace the
 	 -- 0s in the first n image_set_size tensors, where n is the number
 	 -- of image indices in the current input row
-	 -- again, we must consider possibility that image has modifier (with 
+	 -- again, we must consider possibility that image has modifier
 	 local current_images_count = #current_data-2
 	 for j=1,current_images_count do
 	    local id_position=j+2
 	    if (opt.modifier_mode==1) then
 	       local modifier_head=current_data[id_position]:split(":")
-	       modifier_image_set_list[j][i]=word_embeddings[modifier_head[1]]
-	       image_set_list[j][i]=image_embeddings[modifier_head[2]]
+	       image_set_list[j][i]=torch.cat(word_embeddings[modifier_head[1]],image_embeddings[modifier_head[2]],1)
 	    else
 	       image_set_list[j][i]=image_embeddings[current_data[id_position]]
 	    end
@@ -330,8 +325,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
       end
    end
    f.close()
-   return word_query_list,modifier_query_list,image_set_list,modifier_image_set_list,
-   non0_slots_count_list,index_list
+   return word_query_list,image_set_list,non0_slots_count_list,index_list
 end
 -- DEV VERSION TO HERE
 -- REAL DATA TO HERE

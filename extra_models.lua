@@ -224,7 +224,7 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
    return nn.gModule(inputs,{relevance_distribution})
 end
 
--- feed-forward network with reference layer DEVELOPMENT VERSION
+-- feed-forward network with reference layer DEV VERSION
 function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
 
    local inputs = {}
@@ -233,7 +233,6 @@ function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
    -- text input
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
---   if (opt.modifier_mode) 
    local query = nn.LinearNB(t_inp_size, ref_size)(curr_input):annotate{name='query'}
 
    -- reshaping the ref_size-dimensional text vector into 

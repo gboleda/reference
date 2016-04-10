@@ -194,9 +194,7 @@ else
 
    -- reading in the training data
    training_word_query_list,
-   training_modifier_query_list,
    training_image_set_list,
-   training_modifier_image_set_list,
    training_non0_slots_count_list,
    training_index_list=
       create_input_structures_from_file(
@@ -208,9 +206,7 @@ else
 
    -- reading in the validation data
    validation_word_query_list,
-   validation_modifier_query_list,
    validation_image_set_list,
-   validation_modifier_image_set_list,
    validation_non0_slots_count_list,
    validation_index_list=   
       create_input_structures_from_file(
@@ -223,9 +219,7 @@ else
    -- finally, if we have test data, we load them as well
    if (opt.test_set_size>0) then
       test_word_query_list,
-      test_modifier_query_list,
       test_image_set_list,
-      test_modifier_image_set_list,
       test_non0_slots_count_list,
       test_index_list=
 	 create_input_structures_from_file(
@@ -274,10 +268,19 @@ else -- currently only alternative is adam
    }
 end
 
+local model_t_embedding_size = t_input_size
+local model_v_embedding_size = v_input_size
+-- if there are modifier, word input is actually concatenation of 
+-- two vectors
+if (opt.modifier_mode==1) then
+   model_t_embedding_size = t_input_size*2
+   model_v_embedding_size = t_input_size+v_input_size
+end
+
 print('assembling and initializing the model')
 -- option-based switch to set model
 if opt.model == 'ff_ref' then
-   model=ff_reference(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
+   model=ff_reference(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
@@ -291,17 +294,17 @@ elseif opt.model == 'max_margin_bl' then
    -- or -1 for each corresponding pair of elements in the input Tensor.
    -- criterion=nn.MarginRankingCriterion(0.1) -- gbt: for the moment parameter hard coded, to fix
 elseif opt.model == 'ff_ref_with_summary' then
-   model=ff_reference_with_reference_summary(t_input_size,v_input_size,opt.image_set_size,opt.reference_size)
+   model=ff_reference_with_reference_summary(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_deviance' then
-   model=ff_reference_with_deviance_layer(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
+   model=ff_reference_with_deviance_layer(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum' then
-   model=ff_reference_with_similarity_sum_cell(t_input_size,v_input_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
+   model=ff_reference_with_similarity_sum_cell(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()
