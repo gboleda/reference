@@ -232,6 +232,13 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- query word representations
    local word_query_list = torch.Tensor(data_set_size,t_input_size)
 
+   -- if we are in the experiment with the modifiers, we also need a
+   -- data_set_sizext_input_size tensor holding the query modifiers
+   local modifier_query_list = nil
+   if (opt.modifier_mode==1) then
+      local modifier_query_list = torch.Tensor(data_set_size,t_input_size)
+   end
+
    -- image_set_list is an image_set_size table of data_set_sizex
    -- v_input_size tensors: the ith position of each of this
    -- tensors will contain an image representation supposed to be in
@@ -242,6 +249,21 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    for i=1,image_set_size do
       table.insert(image_set_list,torch.Tensor(data_set_size,v_input_size):zero())
    end
+   -- again, we construct a "mirror" with the same structure (but 
+   -- t_input_size tensors) if we have modifiers
+   local modifier_image_set_list = {}
+   if (opt.modifier_mode==1) then
+      for i=1,image_set_size do
+	 table.insert(modifier_image_set_list,torch.Tensor(data_set_size,t_input_size):zero())
+      end
+   end
+
+   -- non0_slots_count_list contains, for each sample, the number of real
+   -- images that were passed in input (this is only needed by certain models)
+   local non0_slots_count_list = nil
+   if (model_needs_real_image_count==1) then
+      non0_slots_count_list = torch.Tensor(data_set_size)
+   end
 
    -- index_list contains, for each sample, the index of the correct
    -- image (the one corresponding to the word) into the corresponding
@@ -251,10 +273,6 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- DEVIANT CASES!!!!
 
    local index_list = torch.Tensor(data_set_size)
-
-   -- non0_slots_count_list contains, for each sample, the number of real
-   -- images that were passed in input (this is only needed by a subset of models)
-   local non0_slots_count_list = torch.Tensor(data_set_size)
 
    local f = io.input(i_file)
    local i=1
@@ -267,10 +285,16 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
       for current_line in lines:gmatch("[^\n]+") do
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
-	 current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+") -- should be local *************
-	 -- first field is word id, second field gold index, other
-	 -- fields image ids
-	 word_query_list[i]=word_embeddings[current_data[1]]
+	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
+	 -- first field is word id (or modifier:word id if in modifier mode), second field gold index, other
+	 -- fields image ids (or modifier:image ids if in modifier mode)
+	 if (modifier_mode==1) then
+	    local modifier_head=current_data[1]:split(":")
+	    modifier_query_list[i]=word_embeddings[modifier_head[1]]
+	    word_query_list[i]=word_embeddings[modifier_head[2]]
+	 else
+	    word_query_list[i]=word_embeddings[current_data[1]]
+	 end
 	 index_list[i]=current_data[2]
 	 -- handling deviant cases
 	 if index_list[i]<1 then
@@ -286,18 +310,28 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	 -- the maximum (determined by image size) we only replace the
 	 -- 0s in the first n image_set_size tensors, where n is the number
 	 -- of image indices in the current input row
+	 -- again, we must consider possibility that image has modifier (with 
 	 local current_images_count = #current_data-2
 	 for j=1,current_images_count do
 	    local id_position=j+2
-	    image_set_list[j][i]=image_embeddings[current_data[id_position]]
+	    if (opt.modifier_mode==1) then
+	       local modifier_head=current_data[id_position]:split(":")
+	       modifier_image_set_list[j][i]=word_embeddings[modifier_head[1]]
+	       image_set_list[j][i]=image_embeddings[modifier_head[2]]
+	    else
+	       image_set_list[j][i]=image_embeddings[current_data[id_position]]
+	    end
 	 end
-	 -- we also keep track of real image count in non0_slots_count_list 
-	 non0_slots_count_list[i] = current_images_count
+	 -- we also keep track of real image count in non0_slots_count_list, if needed
+	 if (model_needs_real_image_count==1) then
+	    non0_slots_count_list[i] = current_images_count
+	 end
 	 i=i+1
       end
    end
    f.close()
-   return word_query_list,image_set_list,index_list,non0_slots_count_list
+   return word_query_list,modifier_query_list,image_set_list,modifier_image_set_list,
+   non0_slots_count_list,index_list
 end
 -- DEV VERSION TO HERE
 -- REAL DATA TO HERE

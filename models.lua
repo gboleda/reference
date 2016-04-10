@@ -1,5 +1,5 @@
--- feed-forward network with reference layer STABLE
-function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
+-- feed-forward network with reference layer OLD: does not handle modifiers!
+function ff_reference_old(t_inp_size,v_inp_size,img_set_size,ref_size)
 
    local inputs = {}
    local reference_vectors = {}
@@ -7,7 +7,7 @@ function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
    -- text input
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
-   local query = nn.LinearNB(t_inp_size, ref_size)(curr_input)
+   local query = nn.LinearNB(t_inp_size, ref_size)(curr_input):annotate{name='query'}
 
    -- reshaping the ref_size-dimensional text vector into 
    -- a 1xref_size-dimensional vector for the multiplication below
@@ -34,14 +34,14 @@ function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
                                                                    -- the expected inputs in the table are one-dimensional (the
                                                                    --  reference vectors), necessary not to confuse 
                                                                    -- it when batches are passes
-   local reference_matrix=nn.View(#reference_vectors,-1):setNumInputDims(1)(all_reference_values) -- again, note 
+   local reference_matrix=nn.View(#reference_vectors,-1):setNumInputDims(1)(all_reference_values):annotate{name='reference_matrix'} -- again, note 
                                                                                                   -- setNumInputDims for
                                                                                                   -- minibatch processing
 
    -- taking the dot product of each reference vector
    -- with the query vector
    local dot_vector_split=nn.MM(false,true)({query_matrix,reference_matrix})
-   local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
+   local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split):annotate{name='dot_vector'} -- reshaping into batch-by-nref matrix for minibatch
                                                                            -- processing
 
    -- transforming the dot products into LOG probabilities via a

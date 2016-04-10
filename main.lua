@@ -41,6 +41,7 @@ cmd:option('--word_embedding_file','','word embedding file (with word vectors; f
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
+cmd:option('--modifier_mode',0,'if set to 1, we assume protocol files to have colon-delimited modifiers prefixed to RE and each image')
 cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume there are no test data)')
 cmd:option('--output_guesses_file','','if this file is defined, at test time we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 cmd:option('--skip_test_loss',0,'if set to value different from 0, loss will not be calculated on test data (to deal with deviant conditions)')
@@ -193,49 +194,46 @@ else
 
    -- reading in the training data
    training_word_query_list,
+   training_modifier_query_list,
    training_image_set_list,
-   training_index_list,
-   training_non0_slots_count_list=
+   training_modifier_image_set_list,
+   training_non0_slots_count_list,
+   training_index_list=
       create_input_structures_from_file(
 	 opt.protocol_prefix .. ".train",
 	 opt.training_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
-   if (model_needs_real_image_count==0) then
-         training_non0_slots_count_list=nil
-   end
 
    -- reading in the validation data
    validation_word_query_list,
+   validation_modifier_query_list,
    validation_image_set_list,
-   validation_index_list,   
-   validation_non0_slots_count_list=
+   validation_modifier_image_set_list,
+   validation_non0_slots_count_list,
+   validation_index_list=   
       create_input_structures_from_file(
 	 opt.protocol_prefix .. ".valid",
 	 opt.validation_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
-   if (model_needs_real_image_count==0) then
-         validation_non0_slots_count_list=nil
-   end
 
    -- finally, if we have test data, we load them as well
    if (opt.test_set_size>0) then
       test_word_query_list,
+      test_modifier_query_list,
       test_image_set_list,
-      test_index_list,
-      test_non0_slots_count_list=
+      test_modifier_image_set_list,
+      test_non0_slots_count_list,
+      test_index_list=
 	 create_input_structures_from_file(
 	    opt.protocol_prefix .. ".test",
 	    opt.test_set_size,
 	    t_input_size,
 	    v_input_size,
 	    opt.image_set_size)
-      if (model_needs_real_image_count==0) then
-         test_non0_slots_count_list=nil
-      end
    end
 end
 
