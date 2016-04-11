@@ -289,6 +289,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
 	    local modifier_head=current_data[1]:split(":")
 	    word_query_list[i]=torch.cat(word_embeddings[modifier_head[1]],word_embeddings[modifier_head[2]],1)
 	 else
+	    print(current_data[1])
 	    word_query_list[i]=word_embeddings[current_data[1]]
 	 end
 	 index_list[i]=current_data[2]

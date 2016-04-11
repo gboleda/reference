@@ -56,7 +56,7 @@ local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
 -- the following is only relevant for models with reference vectors
-cmd:option('--reference_size',80, 'size of reference vectors; for max margin baseline, recycled to give size of mapped vectors')
+cmd:option('--reference_size',80, 'size of reference vectors; for max margin baseline, it is recycled to give size of mapped vectors')
 -- -- options for the model with the deviance detection layer only
 cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for deviance layer model: sigmoid by default, tanh is any other string is passed')
 cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')

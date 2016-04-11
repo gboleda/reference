@@ -4,7 +4,8 @@ require('optim')
 require('LinearNB') -- for linear mappings without bias
 
 print('reading the data processing file')
-dofile('data.lua')
+--dofile('data.lua')
+dofile('data-max-margin.lua')
 
 -- typical generic gradient update function
 function gradUpdate(mlp, x, y, criterion, learningRate)
