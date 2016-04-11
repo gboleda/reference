@@ -67,8 +67,8 @@ image_embeddings,v_input_size=
 -- lodading test data
 test_word_query_list,
 test_image_set_list,
-test_index_list,
-test_non0_slots_count_list = create_input_structures_from_file(opt.test_file,
+test_non0_slots_count_list,
+test_index_list= create_input_structures_from_file(opt.test_file,
 							       opt.test_set_size,
 							       t_input_size,
 							       v_input_size,
