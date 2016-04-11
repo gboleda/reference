@@ -19,9 +19,8 @@ cmd:option('--debug',0,'call special debug functions')
 -- this option is needed to specify the path to the reference codebase,
 -- in case this main script is launched from another directory (must include
 -- final slash!)
--- gbt: why is it commented out?
--- mb: because it was complicated to make sure that also the other files
--- called from this one would be found, so I decided to keep running the
+-- commented out because it was complicated to make sure that also the other files
+-- called from this one would be found, so Marco decided to keep running the
 -- program from its own directory, rather specifying the path to input and
 -- output files on the command line
 -- cmd:option('--codebase_path','','path to reference codebase, needed if main script is launched from elsewhere')
