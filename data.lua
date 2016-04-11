@@ -231,12 +231,12 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- word_query_list is a data_set_sizext_input_size tensor holding 
    -- query word representations
    local word_query_list = nil
-   if (opt.modifier_mode==0) then
-      word_query_list=torch.Tensor(data_set_size,t_input_size)
+   if (opt.modifier_mode==1) then
+      word_query_list=torch.Tensor(data_set_size,t_input_size*2)
    else
    -- if we are in the experiment with the modifiers, we will
    -- concatenate modifier and head, so we must double the size
-      word_query_list=torch.Tensor(data_set_size,t_input_size*2)
+      word_query_list=torch.Tensor(data_set_size,t_input_size)
    end
 
    -- image_set_list is an image_set_size table of data_set_sizex
@@ -248,10 +248,10 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    local image_set_list={}
    -- initializing the tensors with zeroes
    for i=1,image_set_size do
-      if (opt.modifier_mode==0) then
-	 table.insert(image_set_list,torch.Tensor(data_set_size,v_input_size):zero())
-      else
+      if (opt.modifier_mode==1) then
 	 table.insert(image_set_list,torch.Tensor(data_set_size,t_input_size+v_input_size):zero())
+      else
+	 table.insert(image_set_list,torch.Tensor(data_set_size,v_input_size):zero())
       end
    end
 
