@@ -118,7 +118,7 @@ end
 -- c3=torch.Tensor({-0.3,0.8,0.1,1.7})
 
 -- for i = 1,5 do
---    gradUpdate(model, {q,t,c1}, -1, crit, 0.01)
+--    gradUpdate(model, {q,t,c1}, 1, crit, 0.01)
 -- --   gradUpdate(model, {q,t,c2}, 1, crit, 0.01)
 -- --   gradUpdate(model, {q,t,c3}, 1, crit, 0.01)
 --    if true then
