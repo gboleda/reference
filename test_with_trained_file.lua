@@ -11,6 +11,7 @@ cmd:option('--word_embedding_file','','word embedding file (with word vectors; f
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)... must be coherent with representations used at model training!')
 cmd:option('--image_set_size', 0, 'max number of images in a set (must be coherent with max size used at model training!')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize: must be coherent with choice at model training')
+cmd:option('--modifier_mode',0,'if set to 1, we assume protocol files to have colon-delimited modifiers prefixed to RE and each image')
 cmd:option('--test_file','','format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set, rest of the fields image set (n indices of the images in the image dataset')
 cmd:option('--test_set_size',10, 'test set size')
 -- we need to know the model that was used for training, since this affects
