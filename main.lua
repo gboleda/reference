@@ -51,7 +51,7 @@ cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be 
 cmd:option('--t_input_size',0, 'word embedding size; only used in toy data mode')
 
 -- model parameters
-local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true, ff_ref_sim_sum_revert=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
@@ -60,7 +60,7 @@ cmd:option('--reference_size',80, 'size of reference vectors; for max margin bas
 -- -- options for the model with the deviance detection layer only
 cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for deviance layer model: sigmoid by default, tanh is any other string is passed')
 cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')
--- -- option for ff_ref_sim_sum only
+-- -- option for ff_ref_sim_sum and ff_ref_sim_sum_revert only
 cmd:option('--sum_of_nonlinearities','none','whether in ff_ref_sim_sum model similarities should be filtered by a nonlinearity before being fed to the deviance layer: no filtering by default, with possible options sigmoid and relu')
 
 -- training parameters
@@ -99,8 +99,9 @@ BUFSIZE = 2^23 -- 1MB
 -- reading
 model_can_handle_deviance=0
 if ((opt.model=="ff_ref_with_summary") or 
-   (opt.model=="ff_ref_deviance") or
-   (opt.model=="ff_ref_sim_sum")) then
+      (opt.model=="ff_ref_deviance") or
+      (opt.model=="ff_ref_sim_sum") or
+   (opt.model=="ff_ref_sim_sum_revert")) then
    model_can_handle_deviance=1
 end
 
@@ -304,6 +305,11 @@ elseif opt.model == 'ff_ref_deviance' then
    criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum' then
    model=ff_reference_with_similarity_sum_cell(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
+   -- we use the negative log-likelihood criterion (which expects LOG probabilities
+   -- as model outputs!)
+   criterion= nn.ClassNLLCriterion()
+elseif opt.model == 'ff_ref_sim_sum_revert' then
+   model=ff_reference_with_similarity_sum_cell_revert(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
    -- we use the negative log-likelihood criterion (which expects LOG probabilities
    -- as model outputs!)
    criterion= nn.ClassNLLCriterion()

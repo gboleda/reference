@@ -11,11 +11,12 @@ cmd:option('--word_embedding_file','','word embedding file (with word vectors; f
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)... must be coherent with representations used at model training!')
 cmd:option('--image_set_size', 0, 'max number of images in a set (must be coherent with max size used at model training!')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize: must be coherent with choice at model training')
+cmd:option('--modifier_mode',0,'if set to 1, we assume protocol files to have colon-delimited modifiers prefixed to RE and each image')
 cmd:option('--test_file','','format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set, rest of the fields image set (n indices of the images in the image dataset')
 cmd:option('--test_set_size',10, 'test set size')
 -- we need to know the model that was used for training, since this affects
 -- oov handling
-local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true, ff_ref_sim_sum_revert=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
@@ -40,7 +41,8 @@ BUFSIZE = 2^23 -- 1MB
 model_can_handle_deviance=0
 if ((opt.model=="ff_ref_with_summary") or 
    (opt.model=="ff_ref_deviance") or
-   (opt.model=="ff_ref_sim_sum")) then
+   (opt.model=="ff_ref_sim_sum") or
+   (opt.model=="ff_ref_sim_sum_revert")) then
    model_can_handle_deviance=1
 end
 

@@ -1,29 +1,29 @@
-%  /Applications/MATLAB_R2014b.app/bin/matlab -nodesktop -nodisplay -nosplash -nojvm -r output_convnet_guesses
+%  /mnt/8tera/apps/matlabR2015b/bin/matlab -nodesktop -nodisplay -nosplash -nojvm -r output_convnet_guesses
 
-% assumes installation of matconvnet in:
-% /Users/marco/Desktop/matconvnet-1.0-beta18/
+% assumes we can rely on Ravi\'s installation of matconvnet in:
+% 
 
 % also assumes pre-trained model imagenet-vgg-verydeep-19.mat is in
-% directory above
+% current directory
 
 % also assumes images are in dir
-% /Users/marco/Desktop/temp_images
+% images
 
 % HARD-CODED file output name:
-% convnet_guesses.txt
+% new_convnet_guesses.txt
 
-run /Users/marco/Desktop/matconvnet-1.0-beta18/matlab/vl_setupnn 
+run  /home/ravi.shekhar/matconvnet-1.0-beta17/matlab/vl_setupnn
 
 % load the pre-trained CNN
-net = load('/Users/marco/Desktop/matconvnet-1.0-beta18/imagenet-vgg-verydeep-19.mat') ;
+net = load('imagenet-vgg-verydeep-19.mat') ;
 
 % load images
-imagefiles = dir('/Users/marco/Desktop/temp_images/*.jpg');
+imagefiles = dir('images/*.jpg');
 
-out_file = fopen('convnet_guesses.txt','w');
+out_file = fopen('new_convnet_guesses.txt','w');
 
 for im_index=1:length(imagefiles)
-  im = imread(fullfile('/Users/marco/Desktop/temp_images',imagefiles(im_index).name));
+  im = imread(fullfile('images',imagefiles(im_index).name));
 
   im_ = single(im) ; % note: 0-255 range
   im_ = imresize(im_, net.meta.normalization.imageSize(1:2)) ;
