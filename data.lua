@@ -3,8 +3,6 @@
 ******* and validation data                           *******
 --]]
 
--- gbt to do: check if I really need
-
 -- TOY DATA FROM HERE
 
 -- this function, given an index integer and a target dimensionality,
