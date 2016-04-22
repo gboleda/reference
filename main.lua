@@ -62,6 +62,8 @@ cmd:option('--nonlinearity','sigmoid', 'nonlinear transformation to be used for 
 cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevant model')
 -- -- option for ff_ref_sim_sum and ff_ref_sim_sum_revert only
 cmd:option('--sum_of_nonlinearities','none','whether in ff_ref_sim_sum model similarities should be filtered by a nonlinearity before being fed to the deviance layer: no filtering by default, with possible options sigmoid and relu')
+-- -- option for max_margin_bl only
+cmd:option('--margin',0.1,'margin size; 0.1 by default, any other numerical value possible')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -183,7 +185,6 @@ if opt.toy ~= 0 then
       )
 
 -- REAL DATA PROCESSING
-   -- here put elseif and change depending on model (ff_ref or max_margin)
 else
    -- reading word embeddings
    word_embeddings,t_input_size=
@@ -192,42 +193,54 @@ else
    image_embeddings,v_input_size=
       load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
 
-   -- reading in the training data
-   training_word_query_list,
-   training_image_set_list,
-   training_non0_slots_count_list,
-   training_index_list=
-      create_input_structures_from_file(
-	 opt.protocol_prefix .. ".train",
-	 opt.training_set_size,
-	 t_input_size,
-	 v_input_size,
-	 opt.image_set_size)
+   if opt.model=="max_margin_bl" then
+      train_data,train_gold,_,training_index_list= create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".train",opt.training_set_size,t_input_size,v_input_size)
+      -- print(train_data)
+      -- print(#train_gold)
+      test_data,test_gold,nimgs_per_sequence=create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".test",opt.test_set_size,t_input_size,v_input_size)
+      -- print(test_data)
+      -- print(#test_gold)
+      valid_data,valid_gold,_= create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".valid",opt.validation_set_size,t_input_size,v_input_size)
+      -- print(valid_data)
+      -- print(#valid_gold)
+   else
+      -- reading in the training data
+      training_word_query_list,
+      training_image_set_list,
+      training_non0_slots_count_list,
+      training_index_list=
+	 create_input_structures_from_file(
+	    opt.protocol_prefix .. ".train",
+	    opt.training_set_size,
+	    t_input_size,
+	    v_input_size,
+	    opt.image_set_size)
 
-   -- reading in the validation data
-   validation_word_query_list,
-   validation_image_set_list,
-   validation_non0_slots_count_list,
-   validation_index_list=   
-      create_input_structures_from_file(
+      -- reading in the validation data
+      validation_word_query_list,
+      validation_image_set_list,
+      validation_non0_slots_count_list,
+      validation_index_list=   
+	 create_input_structures_from_file(
 	 opt.protocol_prefix .. ".valid",
 	 opt.validation_set_size,
 	 t_input_size,
 	 v_input_size,
 	 opt.image_set_size)
 
-   -- finally, if we have test data, we load them as well
-   if (opt.test_set_size>0) then
-      test_word_query_list,
-      test_image_set_list,
-      test_non0_slots_count_list,
-      test_index_list=
-	 create_input_structures_from_file(
-	    opt.protocol_prefix .. ".test",
-	    opt.test_set_size,
-	    t_input_size,
-	    v_input_size,
-	    opt.image_set_size)
+      -- finally, if we have test data, we load them as well
+      if (opt.test_set_size>0) then
+	 test_word_query_list,
+	 test_image_set_list,
+	 test_non0_slots_count_list,
+	 test_index_list=
+	    create_input_structures_from_file(
+	       opt.protocol_prefix .. ".test",
+	       opt.test_set_size,
+	       t_input_size,
+	       v_input_size,
+	       opt.image_set_size)
+      end
    end
 end
 
@@ -278,41 +291,31 @@ if (opt.modifier_mode==1) then
 end
 
 print('assembling and initializing the model')
+
+-- default criterion (CAN BE OVERRIDEN BELOW)
+-- we use the negative log-likelihood criterion (which expects LOG probabilities
+-- as model outputs!)
+criterion=nn.ClassNLLCriterion()
+
 -- option-based switch to set model
 if opt.model == 'ff_ref' then
    model=ff_reference(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size)
-   -- we use the negative log-likelihood criterion (which expects LOG probabilities
-   -- as model outputs!)
-   criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'max_margin_bl' then
-   error('ERROR: still not implemented: ' .. tostring(opt.model))
-   -- model=max_margin_baseline_model(t_input_size,v_input_size,opt.reference_size)
+   model=max_margin_baseline_model(t_input_size,v_input_size,opt.reference_size)
    -- Creates a criterion that measures the loss given an input x = {x1,
    -- x2}, a table of two Tensors of size 1 (they contain only scalars),
    -- and a label y (1 or -1). In batch mode, x is a table of two Tensors
    -- of size batchsize, and y is a Tensor of size batchsize containing 1
    -- or -1 for each corresponding pair of elements in the input Tensor.
-   -- criterion=nn.MarginRankingCriterion(0.1) -- gbt: for the moment parameter hard coded, to fix
+   criterion=nn.MarginRankingCriterion(opt.margin)
 elseif opt.model == 'ff_ref_with_summary' then
    model=ff_reference_with_reference_summary(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size)
-   -- we use the negative log-likelihood criterion (which expects LOG probabilities
-   -- as model outputs!)
-   criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_deviance' then
    model=ff_reference_with_deviance_layer(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity)
-   -- we use the negative log-likelihood criterion (which expects LOG probabilities
-   -- as model outputs!)
-   criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum' then
    model=ff_reference_with_similarity_sum_cell(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
-   -- we use the negative log-likelihood criterion (which expects LOG probabilities
-   -- as model outputs!)
-   criterion= nn.ClassNLLCriterion()
 elseif opt.model == 'ff_ref_sim_sum_revert' then
    model=ff_reference_with_similarity_sum_cell_revert(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
-   -- we use the negative log-likelihood criterion (which expects LOG probabilities
-   -- as model outputs!)
-   criterion= nn.ClassNLLCriterion()
 end
 
 -- getting pointers to the model weights and their gradient
@@ -345,44 +348,30 @@ feval = function(x)
    -- us which samples are in current batch
    local batch_index_list=training_index_list:index(1,current_batch_indices)
    local batch_input_table={}
-   -- only if model is using this info, we also pass number of real images
-   if model_needs_real_image_count==1 then
-      table.insert(batch_input_table,
-		   training_non0_slots_count_list:index(1,current_batch_indices):resize(opt.mini_batch_size,1))
+   if opt.model=="max_margin_bl" then
+      -- batch_index_list=training_index_list:index(1,current_batch_indices) -- ***
+      -- table.insert(batch_input_table,batch_index_list)
+      local a=1
+   else
+      -- only if model is using this info, we also pass number of real images
+      if model_needs_real_image_count==1 then
+	 table.insert(batch_input_table,
+		      training_non0_slots_count_list:index(1,current_batch_indices):resize(opt.mini_batch_size,1))
+      end
+      table.insert(batch_input_table,training_word_query_list:index(1,current_batch_indices))
+      for j=1,opt.image_set_size do
+	 table.insert(batch_input_table,training_image_set_list[j]:index(1, current_batch_indices))
+      end
    end
-   table.insert(batch_input_table,training_word_query_list:index(1,current_batch_indices))
-   for j=1,opt.image_set_size do
-      table.insert(batch_input_table,training_image_set_list[j]:index(1, current_batch_indices))
-   end
---   if opt.model=='ff_ref' then
---      model_input_table={batch_word_query_list,unpack(batch_image_set_list)}
---      model_output_table=batch_index_list
-   -- elseif opt.model='max_margin_bl' then
-   --    for k=1,opt.image_set_size do
-   -- 	 table.insert(
---   end
 
    -- take forward pass for current training batch
-   -- BEGIN OLD, TO BE REMOVED GBT
-   -- local model_prediction=model:forward(model_input_table)
-   -- local loss = criterion:forward(model_prediction,model_output_table)
-   -- -- note that according to documentation, loss is already normalized by batch size
-   -- -- take backward pass (note that this is implicitly updating the weight gradients)
-   -- local loss_gradient = criterion:backward(model_prediction,model_output_table)
-   -- model:backward(model_input_table,loss_gradient)
-   -- END OLD, TO BE REMOVED GBT
-   local model_prediction=nil
-   -- only if model needs it, we also pass number of real images
-   model_prediction=model:forward(batch_input_table)
+   local model_prediction=model:forward(batch_input_table)
    local loss = criterion:forward(model_prediction,batch_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
    local loss_gradient = criterion:backward(model_prediction,batch_index_list)
    model:backward(batch_input_table,loss_gradient)
 
-   -- local model_prediction=model:forward({q,t,c1})
-   -- local loss = crit:forward(model_prediction, -1)
-   
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
    return loss,model_weight_gradients
@@ -437,7 +426,53 @@ function test(test_word_query_list,test_image_set_list,test_index_list,test_non0
    return average_loss,accuracy
 end
 
+function testmmarg(test_input_table,tgold,nimgs,skip_test_loss)
+
+   set_size=nimgs:size()[1]
+   -- passing all test samples through the trained network
+   local model_prediction=model:forward(test_input_table)
+   -- LOSS
+   local average_loss = math.huge
+   -- unless we are asked to skip it, compute loss
+   if (skip_test_loss == 0) then
+      -- NB: according to documentation, the criterion function already normalizes loss!
+      average_loss = crit:forward(model_prediction,tgold)
+   end
    
+   -- ACCURACY
+   -- print(model_prediction)
+   -- print(model_prediction[1], model_prediction[2])
+   qt=model_prediction[1]
+   qc=model_prediction[2]
+   -- print(tostring(test_input_table[1]:size()[1]))
+   -- print(tostring(nimgs:size()[1])) 
+   local sequence_length=0
+   local end_at=0
+   local hit_count=0 -- torch.Tensor(1)
+   -- to compute accuracy, we first get the answers for each sequence
+   for i=1,set_size do
+      -- print(tostring('---'))
+      -- print(tostring(i))
+      local start_at=end_at+1 -- next time we start after we left off
+      end_at=start_at+(nimgs[i]-2) -- nimgs[i] is sequence length; -2 to discount: the target (-1), the +1 that we put in "start at" (-1)
+      -- print(tostring(start_at))
+      -- print(tostring(end_at))
+      qt_sequence=qt[{{start_at,end_at}}]
+      qc_sequence=qc[{{start_at,end_at}}]
+      -- print(qt_sequence)
+      -- print(qc_sequence)
+      max_confounder=torch.max(qc_sequence)
+      -- print('target:' .. tostring(qt_sequence))
+      -- print('confounder:' .. tostring(qc_sequence))
+      -- print('max target - max confounder: ' .. tostring(qt_sequence[1]) .. ';' .. tostring(max_confounder))
+      if qt_sequence[1] > max_confounder then hit_count=hit_count+1 end
+      i=i+1
+   end
+   local accuracy=hit_count/set_size
+
+   return average_loss,accuracy
+end
+
 --[[
 ****** here, the actual training and validating process starts ******
 --]]
@@ -449,7 +484,7 @@ print('proceeding to training and validation')
 -- the validation loss does not decrease
 local epoch_counter=1
 local continue_training=1
-local previous_validation_loss=1e10 -- arbitrary high loss, to make sure we are going to "improve" on first epoch *** gbt: set to Huge
+local previous_validation_loss=math.huge -- high loss, to make sure we are going to "improve" on first epoch
 local non_improving_epochs_count=0
 while (continue_training==1) do
 
@@ -466,7 +501,7 @@ while (continue_training==1) do
 
    -- we now start reading batches
    local batch_begin_index = 1
-   while ((batch_begin_index+opt.mini_batch_size-1)<=training_index_list:size(1)) do
+   while ((batch_begin_index+opt.mini_batch_size-1)<=opt.training_set_size) do
       current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
       local losses={}
       if (opt.optimization_method=="sgd") then
@@ -481,7 +516,6 @@ while (continue_training==1) do
    
    -- average loss on number of batches
    current_loss = current_loss/number_of_batches
-
 
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
