@@ -147,25 +147,24 @@ function load_embeddings(i_file,normalize_embeddings)
    return embeddings,input_size
 end
 
--- gbt change argument names (global variables)
-function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_input_size,image_set_size)
+function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_size,image_set_size)
    print('reading protocol file ' .. i_file)
 
    -- initializing the data structures to hold the data
 
-   -- word_query_list is a data_set_sizext_input_size tensor holding 
+   -- word_query_list is a data_set_size x t_in_size tensor holding 
    -- query word representations
    local word_query_list = nil
-   if (opt.modifier_mode==1) then
-      word_query_list=torch.Tensor(data_set_size,t_input_size*2)
-   else
    -- if we are in the experiment with the modifiers, we will
    -- concatenate modifier and head, so we must double the size
-      word_query_list=torch.Tensor(data_set_size,t_input_size)
+   if (opt.modifier_mode==1) then
+      word_query_list=torch.Tensor(data_set_size,t_in_size*2)
+   else
+      word_query_list=torch.Tensor(data_set_size,t_in_size)
    end
 
    -- image_set_list is an image_set_size table of data_set_sizex
-   -- v_input_size tensors: the ith position of each of this
+   -- v_in_size tensors: the ith position of each of this
    -- tensors will contain an image representation supposed to be in
    -- the ith set (sets ordered as the corresponding words in the same
    -- positions of word_query_list)
@@ -174,9 +173,9 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    -- initializing the tensors with zeroes
    for i=1,image_set_size do
       if (opt.modifier_mode==1) then
-	 table.insert(image_set_list,torch.Tensor(data_set_size,t_input_size+v_input_size):zero())
+	 table.insert(image_set_list,torch.Tensor(data_set_size,t_in_size+v_in_size):zero())
       else
-	 table.insert(image_set_list,torch.Tensor(data_set_size,v_input_size):zero())
+	 table.insert(image_set_list,torch.Tensor(data_set_size,v_in_size):zero())
       end
    end
 
@@ -203,7 +202,6 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
       if not lines then break end
       if rest then lines = lines .. rest .. '\n' end
       -- traversing current chunk line by line
---      local i=1 -- line counter
       for current_line in lines:gmatch("[^\n]+") do
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
@@ -263,6 +261,56 @@ function create_input_structures_from_file(i_file,data_set_size,t_input_size,v_i
    return output_table,index_list
 end
 
+function unpack_for_max_margin(indices,nconfounders,data,start_at_list,end_at_list) -- 
+   -- go from the indices to the corresponding slices in the data tuples
+   -- returns {query, target, confounder}-tensor table for input to max margin bl, and 
+
+   local ori_set_size=indices:size()[1] -- set size in number of sequences
+   local nconf_list_out=nconfounders:index(1,indices) -- how many confounders there are in each of the output sequences (e.g. batch sequences)
+   local new_set_size=nconf_list_out:sum() -- set size in number of tuples (model input)
+   local start_at_list_out=start_at_list:index(1,indices) -- start of relevant tuples in data
+   local end_at_list_out=end_at_list:index(1,indices) -- end of relevant tuples in data
+   
+   local output_indices=torch.Tensor(new_set_size):long() -- the indices of the tuples we want (long for compatibility with index function)
+   local old=1; local new=0
+   for i=1,ori_set_size do
+      new=old+nconf_list_out[i]
+      output_indices[{{old,new-1}}]=torch.range(start_at_list_out[i],end_at_list_out[i])  -- -1 cause we stop just before the new starting point
+      old=new -- next time we start where we left off
+      i=i+1
+   end
+
+   -- print('output_indices:')
+   -- print(output_indices)
+   local output_tuples={} -- {q_sequence,t_sequence,c_sequence}
+   for j=1,3 do
+      output_tuples[j]=data[j]:index(1,output_indices)
+      -- print('output sizes ' .. tostring(j))
+      -- print(output_tuples[j]:size())
+   end
+   -- print(output_tuples)
+   return output_tuples,new_set_size
+
+end
+   -- -- old, to debug function unpack...
+   -- print('ori_set_size:')
+   -- print(ori_set_size)
+   -- print('new_set_size:')
+   -- print(new_set_size)
+      -- print(tostring('---'))
+      -- print(tostring('i:'))
+      -- print(tostring(i))
+      -- print('start_at:')
+      -- print(start_at_list_out[i])
+      -- print('end_at:')
+      -- print(end_at_list_out[i])
+      -- print('nelem:')
+      -- print(nconf_list_out[i])
+      -- print('new:')
+      -- print(new)
+      -- print(tostring('---'))
+      -- print(output_tuples[j][{{},{1,5}}])
+
 function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t_input_size,v_input_size)
    print('reading protocol file ' .. i_file)
 
@@ -274,25 +322,28 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
    -- [bun_image_vector, bun_image_vector], [hovel_image_vector,
    -- raft_image_vector]})
    
-   local word_query_t = {}
-   local target_image_t = {}
-   local confounder_t = {}
-
-   -- nimgs_list contains, for each sample, how many images there are
-   local nimgs_list = torch.Tensor(data_set_size)
+   -- nconfounders_list contains, for each sample, how many
+   -- confounders there are (= number of images -1 for target;
+   -- corresponds to ntuples created)
+   local nconfounders_list = torch.Tensor(data_set_size)
+   local tuples_start_at_list = torch.Tensor(data_set_size) -- where in the model input (tuples) the tuples for the current sequence start
+   local tuples_end_at_list = torch.Tensor(data_set_size) -- where in the model input (tuples) the tuples for the current sequence end
 
    -- index_list contains, for each sample, the index of the correct
    -- image (the one corresponding to the word) into the corresponding
-   -- ordered set of tensors in image_set_list 
+   -- ordered set of tensors in image_set_list
    -- if a sample is deviant (with index 0 or -1), the corresponding
    -- index will be image_set_size+1, ONLY FOR MODELS THAT CAN HANDLE
    -- DEVIANT CASES!!!!
    local index_list = torch.Tensor(data_set_size)
    
+   local word_query_t = {}
+   local target_image_t = {}
+   local confounder_t = {}
    -- need to create a 'virtual file' so I can set up the dimensionality of the tensors
    local f = io.input(i_file)
    local i=1 -- line (datapoint) counter
-   local npairs=0 -- number of {target, confounder} pairs to be created
+   local ntuples=1 -- number of {query, target, confounder} tuples to be created
    while true do
       local lines, rest = f:read(BUFSIZE, "*line")
       if not lines then break end
@@ -304,53 +355,59 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
 	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
 	 -- first field is word id, second field gold index, other
 	 -- fields image ids
+	 -- print(tostring('---'))
 	 -- io.write(tostring(current_line .. "\n"))
 	 -- example: accumulator	2	granddaughter_246169	accumulator_445171	gilt_439010	dairy_278492
+	 tuples_start_at_list[i]=ntuples
 	 local query=current_data[1]
 	 local current_images_count = #current_data-2
-	 nimgs_list[i]=current_images_count -- recording number of images in sequence
+	 nconfounders_list[i]=current_images_count-1 -- recording number of confounders in sequence; = number of images -1 (target)
 	 index_list[i]=current_data[2] -- recording index of the right image
 	 local target_position=current_data[2]+2 -- vector of the image in position gold index + 2
 	 local target_image=current_data[target_position]
 	 for j=1,current_images_count do
 	    local id_position=j+2
 	    if id_position~=target_position then
-	       npairs=npairs+1
-	       word_query_t[npairs]=query
-	       target_image_t[npairs]=target_image
-	       confounder_t[npairs]=current_data[id_position]
-	       -- io.write(word_query_t[npairs] .. ", " .. target_image_t[npairs] .. ", " .. confounder_t[npairs] .. "\n")
+	       word_query_t[ntuples]=query
+	       target_image_t[ntuples]=target_image
+	       confounder_t[ntuples]=current_data[id_position]
+	       -- io.write(word_query_t[ntuples] .. ", " .. target_image_t[ntuples] .. ", " .. confounder_t[ntuples] .. "\n")
+	       ntuples=ntuples+1
 	    end
 	 end
+	 tuples_end_at_list[i]=ntuples-1 -- because we add one after processing all images
+	 -- io.write(nconfounders_list[i] .. ", " .. tuples_start_at_list[i] .. ", " .. tuples_end_at_list[i] .. "\n")
 	 i=i+1
       end
    end
    f.close()
+   ntuples=ntuples-1 -- -1 because we start by 1 / add one
+   print("     total number of datapoints (corresponding to total images in " .. tostring(i-1) .. " sequences): " .. tostring(ntuples))
 
-   
    -- initializing the data structures to hold the data
-
-   local nseq = i-1 -- because we start by 1
-   print("     total number of datapoints (corresponding to total images in " .. tostring(nseq) .. " sequences): " .. tostring(npairs))
-   -- word_query_list is a npairs x t_input_size tensor holding query
+   
+   -- word_query_list is a ntuples x t_input_size tensor holding query
    -- word representations
-   local word_query_list = torch.Tensor(npairs,t_input_size)
-   -- target_image_query_list is a npairs x v_input_size tensor
+   local word_query_list = torch.Tensor(ntuples,t_input_size)
+   -- target_image_query_list is a ntuples x v_input_size tensor
    -- holding target image representations
-   local target_image_list=torch.Tensor(npairs,v_input_size)
-   -- confounder_query_list is a npairs x v_input_size tensor holding
+   local target_image_list=torch.Tensor(ntuples,v_input_size)
+   -- confounder_query_list is a ntuples x v_input_size tensor holding
    -- confounder representations
-   local confounder_list=torch.Tensor(npairs,v_input_size)
-
-   for j=1,npairs do
+   local confounder_list=torch.Tensor(ntuples,v_input_size)
+   for j=1,ntuples-1 do
+      -- io.write(word_query_t[j] .. ", " .. target_image_t[j] .. ", " .. confounder_t[j] .. "\n")
       word_query_list[j]=word_embeddings[word_query_t[j]]
       target_image_list[j]=image_embeddings[target_image_t[j]]
       confounder_list[j]=image_embeddings[confounder_t[j]]
+      -- print(tostring('---'))
+      -- print(word_query_list[{{j},{1,5}}])
+      -- print(target_image_list[{{j},{1,5}}])
+      -- print(confounder_list[{{j},{1,5}}])
+      -- print(tostring('---'))
    end
    data_table={word_query_list,target_image_list,confounder_list}
-   gold_predictions=torch.Tensor(npairs):zero()+1 -- tensor for gold predictions is just a long list of 1s (see models file)
-   return data_table, gold_predictions, nimgs_list, index_list -- nimgs_list is only needed for testing mode, but we return it always
-
+   return data_table, index_list, nconfounders_list, tuples_start_at_list, tuples_end_at_list
 end
 
 -- REAL DATA TO HERE
