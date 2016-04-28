@@ -120,7 +120,7 @@ end
 ****** checking command-line arguments ******
 --]]
 local output_guesses_file=nil
-if opt.output_guesses_file~='' then
+if opt.output_guesses_file~='' then -- gbt: what does this do?
    output_guesses_file=opt.output_guesses_file
 end
 -- if test size is 0, we won't output test guesses to a file
@@ -137,6 +137,14 @@ end
 if not mst[opt.model] then
    error('ERROR: wrong model type: ' .. tostring(opt.model))
 end
+
+if opt.model=='max_margin_bl' then
+   if (output_guesses_file) then
+      print('WARNING: you requested to print test guesses to file ' .. output_guesses_file .. ' but this option is not available in max margin model... ignoring your request')
+      output_guesses_file=nil
+   end
+end
+   
 if opt.toy ~= 0 then
    if opt.test_set_size ~=0 then
       print('WARNING: no testing in toy mode (resetting test_set_size to 0)')
