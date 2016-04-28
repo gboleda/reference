@@ -395,7 +395,7 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
    -- confounder_query_list is a ntuples x v_input_size tensor holding
    -- confounder representations
    local confounder_list=torch.Tensor(ntuples,v_input_size)
-   for j=1,ntuples-1 do
+   for j=1,ntuples do
       -- io.write(word_query_t[j] .. ", " .. target_image_t[j] .. ", " .. confounder_t[j] .. "\n")
       word_query_list[j]=word_embeddings[word_query_t[j]]
       target_image_list[j]=image_embeddings[target_image_t[j]]

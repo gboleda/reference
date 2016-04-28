@@ -63,7 +63,7 @@ cmd:option('--deviance_size',2,'dimensionality of deviance layer for the relevan
 -- -- option for ff_ref_sim_sum and ff_ref_sim_sum_revert only
 cmd:option('--sum_of_nonlinearities','none','whether in ff_ref_sim_sum model similarities should be filtered by a nonlinearity before being fed to the deviance layer: no filtering by default, with possible options sigmoid and relu')
 -- -- option for max_margin_bl only
-cmd:option('--margin',0.1,'margin size; 0.1 by default, any other numerical value possible')
+cmd:option('--margin',0.1,'margin size; 0.1 by default (value used in DeVise paper), any other numerical value possible')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -179,9 +179,11 @@ dofile('data.lua')
 -- intialize the models are initialized during data reading
 
 print('preparing the data')
+
 local t_input_size=0
 local v_input_size=0
-
+local test_nconfounders_per_sequence=nil -- can get overwritten below
+local validation_nconfounders_per_sequence=nil -- can get overwritten below
 if opt.toy ~= 0 then
 -- TOY DATA PROCESSING
    t_input_size=opt.t_input_size training_word_query_list,
@@ -198,15 +200,22 @@ else
    --reading image embeddings
    image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
 
-   -- gbt: maybe unify create...max_margin and create...file
-   if opt.model=="max_margin_bl" then
-      training_data,training_index_list,training_nconfounders_per_sequence,training_tuples_start_at,training_tuples_end_at=create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".train", opt.training_set_size,t_input_size,v_input_size)
-      test_data,test_index_list,test_nconfounders_per_sequence,test_tuples_start_at,test_tuples_end_at=create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".test", opt.test_set_size,t_input_size,v_input_size)
-      test_gold_predictions=torch.Tensor(test_data[1]:size()[1]):zero()+1 -- tensor for gold predictions is just a long list of 1s (see models file)
-      -- valid_nconfounders_per_sequence -- not needed?
-      valid_data,valid_index_list,_,valid_tuples_start_at,valid_tuples_end_at= create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".valid", opt.validation_set_size,t_input_size,v_input_size)
-      valid_gold_predictions=torch.Tensor(valid_data[1]:size()[1]):zero()+1 -- tensor for gold predictions is just a long list of 1s (see models file)
-      print(training_data)
+   -- gbt: maybe for future: unify create...max_margin and create...file
+   if opt.model=='max_margin_bl' then
+      training_input_table,training_index_list,training_nconfounders_per_sequence,training_tuples_start_at,training_tuples_end_at=create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".train", opt.training_set_size,t_input_size,v_input_size)
+      validation_input_table,validation_index_list,validation_nconfounders_per_sequence,
+      validation_tuples_start_at,validation_tuples_end_at=
+	 create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".valid",
+							  opt.validation_set_size,t_input_size,v_input_size)
+      -- finally, if we have test data, we load them as well
+      if (opt.test_set_size>0) then
+	 test_input_table,test_index_list,test_nconfounders_per_sequence,
+	 test_tuples_start_at,test_tuples_end_at=
+	    create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".test",
+							     opt.test_set_size,t_input_size,v_input_size)
+      end
+
+      print(training_input_table)
 --      print(training_nconfounders_per_sequence)
    else
       -- reading in the training data
@@ -244,6 +253,11 @@ end
 --[[
 ******* initializations *******
 --]]
+
+local training_set_size_as_passed_to_model=opt.training_set_size
+if opt.model=='max_margin_bl' then
+   training_set_size_as_passed_to_model=training_input_table[1]:size(1) -- set size in number of tuples
+end
 
 -- optimization hyperparameters
 local optimization_parameters = {}
@@ -327,35 +341,32 @@ feval = function(x)
    -- in the following we assume there is a current_batch_indices tensor telling
    -- us which samples are in current batch
    local batch_input_table={}
+   for j=1,#training_input_table do
+      table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
+   end
    local batch_gold_predictions=nil
    if opt.model == 'max_margin_bl' then
-      batch_input_table=unpack_for_max_margin(current_batch_indices,training_nconfounders_per_sequence,training_data,training_tuples_start_at,training_tuples_end_at)
-      batch_gold_predictions=torch.ones(batch_input_table[1]:size()[1]) -- tensor for gold predictions is just a long list of 1s (see models file)
-      -- to debug: require('nn'); criterion:forward({torch.Tensor({2}),torch.Tensor({3})},1)
-      if batch_gold_predictions:size()[1]==1 then batch_gold_predictions=1 end -- if there is only one element, criterion wants scalar, not tensor
+      batch_gold_predictions=torch.ones(batch_input_table[1]:size(1)) -- tensor for gold predictions is just a long list of 1s (see models file)
+      if batch_gold_predictions:size(1)==1 then batch_gold_predictions=1 end -- if there is only one element, criterion wants scalar, not tensor
    else
-      for j=1,#training_input_table do
-	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
-      end
       batch_gold_predictions=training_index_list:index(1,current_batch_indices)
    end
 --      print(batch_input_table)
 
    -- take forward pass for current training batch
    local model_prediction=model:forward(batch_input_table)
-   print('model_prediction:')
-   print(model_prediction)
+   -- print('model_prediction:')
+   -- print(model_prediction)
+   -- to debug: require('nn'); criterion:forward({torch.Tensor({2}),torch.Tensor({3})},1)
    local loss = criterion:forward(model_prediction,batch_gold_predictions)
-   print('loss:')
-   print(loss)
+   -- print('loss:')
+   -- print(loss)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
    local loss_gradient = criterion:backward(model_prediction,batch_gold_predictions)
-   print('loss gradient')
-   print(loss_gradient)
-   print('passed gradient calculation')
+   -- print('loss gradient')
+   -- print(loss_gradient)
    model:backward(batch_input_table,loss_gradient)
-   print('passed gradient update')
 
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
@@ -366,8 +377,12 @@ end
 ******* testing/validation function *******
 --]]
 
-function test(input_table,gold_predictions,output_print_file,skip_test_loss)
+function test(input_table,gold_predictions,nconfounders,output_print_file,skip_test_loss)
 
+   local set_size=gold_predictions:size(1)
+   if opt.model=='max_margin_bl' then
+      set_size=nconfounders:size(1)
+   end
    -- passing all test samples through the trained network
    local model_prediction=model:forward(input_table)
    local average_loss = math.huge
@@ -377,16 +392,45 @@ function test(input_table,gold_predictions,output_print_file,skip_test_loss)
       average_loss = criterion:forward(model_prediction,gold_predictions)
    end
 
-   -- to compute accuracy, we first retrieve list of indices of image
-   -- vectors that were preferred by the model
-   local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
-   local model_max_probs=torch.exp(model_max_log_probs)
-   -- we then count how often this guesses are the same as the gold
-   -- (and thus the difference is 0) (note conversions to long because
-   -- model_guesses is long tensor)
-   local hit_count = torch.sum(torch.eq(gold_predictions:long(),model_guesses))
-   -- normalizing accuracy by test set size
-   local accuracy=hit_count/gold_predictions:size(1)
+   -- print(model_prediction)
+   -- print(model_prediction[1], model_prediction[2])
+   local hit_count=0
+   -- ACCURACY *** aquí
+   if opt.model=='max_margin_bl' then
+      local end_at=0
+      -- to compute accuracy, we first get the answers for each sequence
+      for seqn=1,set_size do -- iterating over sequences
+      	 -- print('---')
+      	 -- print(seqn)
+	 confn=nconfounders[seqn] -- how many confounders there are in the sequence
+	 -- print(confn)
+      	 local start_at=end_at+1 -- next time we start after we left off
+      	 end_at=start_at+(confn-1)
+      	 -- print('start at: ' .. tostring(start_at) .. ', end at: ' .. tostring(end_at))
+	 local qt=model_prediction[1][start_at] -- first element in model_predictions contains dot products of query and target. They are the same for all the tuples.
+      	 local qc_sequence=model_prediction[2][{{start_at,end_at}}]
+      	 max_confounder=torch.max(qc_sequence)
+      	 -- print('target:' .. tostring(qt))
+      	 -- print('confounder:' .. tostring(qc_sequence))
+      	 -- print('target - max confounder: ' .. tostring(qt) .. ';' .. tostring(max_confounder))
+      	 if qt > max_confounder then
+	    hit_count=hit_count+1
+	    -- print('hit! ' .. tostring(hit_count))
+	 end
+      	 seqn=seqn+1
+      end
+   else
+      -- to compute accuracy, we first retrieve list of indices of image
+      -- vectors that were preferred by the model
+      local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
+      local model_max_probs=torch.exp(model_max_log_probs)
+      -- we then count how often this guesses are the same as the gold
+      -- (and thus the difference is 0) (note conversions to long because
+      -- model_guesses is long tensor)
+      hit_count = torch.sum(torch.eq(gold_predictions:long(),model_guesses))
+   end
+   -- normalizing accuracy by test/valid set size
+   local accuracy=hit_count/set_size
 
    --if requested, print guesses and their log probs to file
    if output_print_file then
@@ -397,52 +441,6 @@ function test(input_table,gold_predictions,output_print_file,skip_test_loss)
 	 f:flush()
 	 f.close()
    end
-   return average_loss,accuracy
-end
-
-function testmmarg(input_table,nconfounders,skip_test_loss)
-
-   set_size=nconfounders:size()[1]
-   -- passing all test samples through the trained network
-   local model_prediction=model:forward(input_table)
-   -- LOSS
-   local average_loss = math.huge
-   -- unless we are asked to skip it, compute loss
-   if (skip_test_loss == 0) then
-      -- NB: according to documentation, the criterion function already normalizes loss!
-      average_loss = crit:forward(model_prediction,tgold)
-   end
-   
-   -- ACCURACY
-   -- print(model_prediction)
-   -- print(model_prediction[1], model_prediction[2])
-   qt=model_prediction[1]
-   qc=model_prediction[2]
-   -- print(tostring(input_table[1]:size()[1]))
-   -- print(tostring(nconfounders:size()[1])) 
-   local end_at=0
-   local hit_count=0 -- torch.Tensor(1)
-   -- to compute accuracy, we first get the answers for each sequence
-   for i=1,set_size do
-      -- print(tostring('---'))
-      -- print(tostring(i))
-      local start_at=end_at+1 -- next time we start after we left off
-      end_at=start_at+(nconfounders[i]-1) -- nconfounders[i] is sequence length; -1 to discount the +1 that we put in "start at" (-1)
-      -- print(tostring(start_at))
-      -- print(tostring(end_at))
-      qt_sequence=qt[{{start_at,end_at}}]
-      qc_sequence=qc[{{start_at,end_at}}]
-      -- print(qt_sequence)
-      -- print(qc_sequence)
-      max_confounder=torch.max(qc_sequence)
-      -- print('target:' .. tostring(qt_sequence))
-      -- print('confounder:' .. tostring(qc_sequence))
-      -- print('max target - max confounder: ' .. tostring(qt_sequence[1]) .. ';' .. tostring(max_confounder))
-      if qt_sequence[1] > max_confounder then hit_count=hit_count+1 end
-      i=i+1
-   end
-   local accuracy=hit_count/set_size
-
    return average_loss,accuracy
 end
 
@@ -459,6 +457,19 @@ local epoch_counter=1
 local continue_training=1
 local previous_validation_loss=math.huge -- high loss, to make sure we are going to "improve" on first epoch
 local non_improving_epochs_count=0
+local validation_gold_predictions=validation_index_list
+local test_gold_predictions=nil
+if (opt.test_set_size>0) then
+   test_gold_predictions=test_index_list
+end
+if opt.model == 'max_margin_bl' then
+   -- tensors for gold predictions are just a long list of 1s (see models file)
+   validation_gold_predictions=torch.ones(validation_input_table[1]:size(1))
+   if (opt.test_set_size>0) then
+      test_gold_predictions=torch.ones(test_input_table[1]:size(1))
+   end
+end
+
 while (continue_training==1) do
 
    print('now going through epoch ' .. epoch_counter)
@@ -468,17 +479,17 @@ while (continue_training==1) do
 
    -- getting a shuffled index through the training data,
    -- so that they are processed in a different order at each epoch
-   local shuffle = torch.randperm(opt.training_set_size):long()
+   local shuffle = torch.randperm(training_set_size_as_passed_to_model):long()
           -- note that shuffle has to be LongTensor for compatibility
           -- with the index function used below
 
    -- we now start reading batches
    local batch_begin_index = 1
-   while ((batch_begin_index+opt.mini_batch_size-1)<=opt.training_set_size) do
+   while ((batch_begin_index+opt.mini_batch_size-1)<=training_set_size_as_passed_to_model) do
       current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
-      print('---')
-      print('current_batch_indices:')
-      print(current_batch_indices)
+      -- print('---')
+      -- print('current_batch_indices:')
+      -- print(current_batch_indices)
       local losses={}
       if (opt.optimization_method=="sgd") then
 	 _,losses = optim.sgd(feval,model_weights,optimization_parameters)
@@ -496,7 +507,7 @@ while (continue_training==1) do
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
    -- validation
-   local validation_loss,validation_accuracy=test(validation_input_table,validation_gold_predictions,nil,0)
+   local validation_loss,validation_accuracy=test(validation_input_table,validation_gold_predictions,validation_nconfounders_per_sequence,nil,0)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
    -- if we are below or at the minumum number of required epochs, we
@@ -526,7 +537,7 @@ end
 
 if (opt.test_set_size>0) then
    print('training done and test data available...')
-   local test_loss,test_accuracy=test(test_input_table,test_gold_predictions,output_guesses_file,opt.skip_test_loss)
+   local test_loss,test_accuracy=test(test_input_table,test_gold_predictions,test_nconfounders_per_sequence,output_guesses_file,opt.skip_test_loss)
    print('test loss: ' .. test_loss)
    if (opt.skip_test_loss == 0) then
       print('test accuracy: ' .. test_accuracy)
