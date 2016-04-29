@@ -119,8 +119,8 @@ end
 --[[
 ****** checking command-line arguments ******
 --]]
-local output_guesses_file=nil
-if opt.output_guesses_file~='' then -- gbt: what does this do?
+local output_guesses_file=nil -- gbt why this instead of simply setting opt.output_guesses_file to nil by default and using it throughout?
+if opt.output_guesses_file~='' then
    output_guesses_file=opt.output_guesses_file
 end
 -- if test size is 0, we won't output test guesses to a file
@@ -179,6 +179,9 @@ dofile('extra_models.lua') -- temp file for work in progress
 print('reading the data processing file')
 dofile('data.lua')
 
+print('reading the auxiliary functions')
+dofile('other.lua')
+
 --[[
 ****** input data reading ******
 --]]
@@ -207,53 +210,35 @@ else
    word_embeddings,t_input_size=load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
    --reading image embeddings
    image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
-
-   -- gbt: maybe for future: unify create...max_margin and create...file
-   if opt.model=='max_margin_bl' then
-      training_input_table,training_index_list,training_nconfounders_per_sequence,training_tuples_start_at,training_tuples_end_at=create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".train", opt.training_set_size,t_input_size,v_input_size)
-      validation_input_table,validation_index_list,validation_nconfounders_per_sequence,
-      validation_tuples_start_at,validation_tuples_end_at=
-	 create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".valid",
-							  opt.validation_set_size,t_input_size,v_input_size)
+   -- reading in the training data
+   training_input_table,training_index_list,training_nconfounders_per_sequence,
+   training_tuples_start_at,training_tuples_end_at=
+      	 create_input_structures_from_file(
+      	    opt.protocol_prefix .. ".train",
+      	    opt.training_set_size,
+      	    t_input_size,
+      	    v_input_size,
+      	    opt.image_set_size)
+   -- reading in the validation data
+   validation_input_table,validation_index_list,validation_nconfounders_per_sequence,
+   
+   validation_tuples_start_at,validation_tuples_end_at=
+      	 create_input_structures_from_file(
+      	 opt.protocol_prefix .. ".valid",
+      	 opt.validation_set_size,
+      	 t_input_size,
+      	 v_input_size,
+      	 opt.image_set_size)
       -- finally, if we have test data, we load them as well
-      if (opt.test_set_size>0) then
-	 test_input_table,test_index_list,test_nconfounders_per_sequence,
-	 test_tuples_start_at,test_tuples_end_at=
-	    create_input_structures_from_file_for_max_margin(opt.protocol_prefix .. ".test",
-							     opt.test_set_size,t_input_size,v_input_size)
-      end
-
-      print(training_input_table)
---      print(training_nconfounders_per_sequence)
-   else
-      -- reading in the training data
-      training_input_table, training_index_list=
+   if (opt.test_set_size>0) then
+      test_input_table,test_index_list,test_nconfounders_per_sequence,
+      test_tuples_start_at,test_tuples_end_at=
 	 create_input_structures_from_file(
-	    opt.protocol_prefix .. ".train",
-	    opt.training_set_size,
+	    opt.protocol_prefix .. ".test",
+	    opt.test_set_size,
 	    t_input_size,
 	    v_input_size,
 	    opt.image_set_size)
-
-      -- reading in the validation data
-      validation_input_table, validation_index_list=   
-	 create_input_structures_from_file(
-	 opt.protocol_prefix .. ".valid",
-	 opt.validation_set_size,
-	 t_input_size,
-	 v_input_size,
-	 opt.image_set_size)
-
-      -- finally, if we have test data, we load them as well
-      if (opt.test_set_size>0) then
-	 test_input_table, test_index_list=
-	    create_input_structures_from_file(
-	       opt.protocol_prefix .. ".test",
-	       opt.test_set_size,
-	       t_input_size,
-	       v_input_size,
-	       opt.image_set_size)
-      end
    end
 end
 
@@ -400,46 +385,7 @@ function test(input_table,gold_predictions,nconfounders,output_print_file,skip_t
       average_loss = criterion:forward(model_prediction,gold_predictions)
    end
 
-   -- print(model_prediction)
-   -- print(model_prediction[1], model_prediction[2])
-   local hit_count=0
-   -- ACCURACY *** aquí
-   if opt.model=='max_margin_bl' then
-      local end_at=0
-      -- to compute accuracy, we first get the answers for each sequence
-      for seqn=1,set_size do -- iterating over sequences
-      	 -- print('---')
-      	 -- print(seqn)
-	 confn=nconfounders[seqn] -- how many confounders there are in the sequence
-	 -- print(confn)
-      	 local start_at=end_at+1 -- next time we start after we left off
-      	 end_at=start_at+(confn-1)
-      	 -- print('start at: ' .. tostring(start_at) .. ', end at: ' .. tostring(end_at))
-	 local qt=model_prediction[1][start_at] -- first element in model_predictions contains dot products of query and target. They are the same for all the tuples.
-      	 local qc_sequence=model_prediction[2][{{start_at,end_at}}]
-      	 max_confounder=torch.max(qc_sequence)
-      	 -- print('target:' .. tostring(qt))
-      	 -- print('confounder:' .. tostring(qc_sequence))
-      	 -- print('target - max confounder: ' .. tostring(qt) .. ';' .. tostring(max_confounder))
-      	 if qt > max_confounder then
-	    hit_count=hit_count+1
-	    -- print('hit! ' .. tostring(hit_count))
-	 end
-      	 seqn=seqn+1
-      end
-   else
-      -- to compute accuracy, we first retrieve list of indices of image
-      -- vectors that were preferred by the model
-      local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
-      local model_max_probs=torch.exp(model_max_log_probs)
-      -- we then count how often this guesses are the same as the gold
-      -- (and thus the difference is 0) (note conversions to long because
-      -- model_guesses is long tensor)
-      hit_count = torch.sum(torch.eq(gold_predictions:long(),model_guesses))
-   end
-   -- normalizing accuracy by test/valid set size
-   local accuracy=hit_count/set_size
-
+   accuracy=compute_accuracy(opt.model,set_size,model_prediction,gold_predictions,nconfounders)
    --if requested, print guesses and their log probs to file
    if output_print_file then
          local f = io.open(output_print_file,"w")
@@ -555,5 +501,6 @@ end
 -- finally, if we were asked to save the model to a file, now it's the
 -- time to do it
 if (opt.save_model_to_file ~= '') then
+   print('saving model to file ' .. opt.save_model_to_file)
    torch.save(opt.save_model_to_file,model)
 end

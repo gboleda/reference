@@ -1,9 +1,2 @@
 test.sh
 max-margin-test.lua
-call-main-lua.sh
-image.dm
-stimuli.test
-stimuli.train
-stimuli.valid
-word.dm
-

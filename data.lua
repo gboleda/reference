@@ -148,9 +148,27 @@ function load_embeddings(i_file,normalize_embeddings)
 end
 
 function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_size,image_set_size)
+   local output_table = {}
+   local index_list = nil
+   local nconfounders_list = nil
+   local tuples_start_at_list = nil
+   local tuples_end_at_list = nil
+   if opt.model=='max_margin_bl' then
+      output_table, index_list,
+      nconfounders_list, tuples_start_at_list, tuples_end_at_list=
+	 create_input_structures_from_file_for_max_margin(i_file,data_set_size,t_in_size,v_in_size)
+   else
+      output_table, index_list=
+	 create_input_structures_from_file_for_other_models(i_file,data_set_size,t_in_size,v_in_size,image_set_size)
+   end
+   return output_table, index_list, nconfounders_list, tuples_start_at_list, tuples_end_at_list
+end
+
+function create_input_structures_from_file_for_other_models(i_file,data_set_size,t_in_size,v_in_size,image_set_size)
    print('reading protocol file ' .. i_file)
 
    -- initializing the data structures to hold the data
+   local output_table = {} -- to put data tensors in (will be model input)
 
    -- word_query_list is a data_set_size x t_in_size tensor holding 
    -- query word representations
@@ -247,8 +265,6 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
    end
    f.close()
 
-   -- local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true, ff_ref_sim_sum_revert=true}
-   output_table={}
    -- only if model is using this info, we also pass number of real images
    if model_needs_real_image_count==1 then
       table.insert(output_table,
@@ -258,7 +274,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
    for j=1,opt.image_set_size do
       table.insert(output_table,image_set_list[j])
    end
-   return output_table,index_list
+   return output_table, index_list
 end
 
 function unpack_for_max_margin(indices,nconfounders,data,start_at_list,end_at_list) -- 
@@ -411,3 +427,10 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
 end
 
 -- REAL DATA TO HERE
+
+function dummy()
+   if opt.model=='max_margin_bl' then
+   --   set_size=nconfounders:size(1)
+      print('piiip')
+   end
+end

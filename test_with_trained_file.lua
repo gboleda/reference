@@ -58,65 +58,50 @@ end
 print('reading the data processing file')
 dofile('data.lua')
 
+print('reading the auxiliary functions')
+dofile('other.lua')
+
 print('preparing data')
 
 -- reading word embeddings
 word_embeddings,t_input_size=
    load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
---reading image embeddings
+-- reading image embeddings
 image_embeddings,v_input_size=
    load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
-test_input_table, test_index_list=
+
+-- reading data file
+local input_table,index_list,nconfounders_per_sequence,
+tuples_start_at,tuples_end_at=
    create_input_structures_from_file(
       opt.test_file,
       opt.test_set_size,
       t_input_size,
       v_input_size,
       opt.image_set_size)
--- -- lodading test data
--- test_word_query_list,
--- test_image_set_list,
--- test_non0_slots_count_list,
--- test_index_list= create_input_structures_from_file(opt.test_file,
--- 							       opt.test_set_size,
--- 							       t_input_size,
--- 							       v_input_size,
--- 							       opt.image_set_size)
--- if (model_needs_real_image_count==0) then
---    test_non0_slots_count_list=nil
--- end
 
-print('reading in the model')
+print('reading in the model from file' .. opt.model_file)
 model = torch.load(opt.model_file)
 
 print('computing model prediction on test data')
 -- passing all test samples through the trained network
-local model_prediction=model:forward(test_input_table)
+local model_prediction=model:forward(input_table)
 
--- passing all test samples through the trained network
--- local model_prediction=nil
--- if model_needs_real_image_count == 1 then -- only in this case
---    -- test_non0_slots_count_list
---    -- is non-nil
---    test_non0_slots_count_list:resize(test_non0_slots_count_list:size(1),1)
---    model_prediction=model:forward({test_non0_slots_count_list,test_word_query_list,unpack(test_image_set_list)})
--- else
---    model_prediction=model:forward({test_word_query_list,unpack(test_image_set_list)})
--- end
+-- initializing variables for below
+local gold_predictions=index_list
+if opt.model == 'max_margin_bl' then
+   -- tensors for gold predictions are just a long list of 1s (see models file)
+   gold_predictions=torch.ones(input_table[1]:size(1))
+end
+local set_size=gold_predictions:size(1)
+if opt.model=='max_margin_bl' then
+   set_size=nconfounders_per_sequence:size(1)
+end
 
--- to compute accuracy, we first retrieve list of indices of image
--- vectors that were preferred by the model
-local model_max_log_probs,model_guesses=torch.max(model_prediction,2)
-local model_max_probs=torch.exp(model_max_log_probs)
--- we then count how often these guesses are the same as the gold
--- (and thus the difference is 0) (note conversions to long because
--- model_guesses is long tensor)
-local hit_count = torch.sum(torch.eq(test_index_list:long(),model_guesses))
--- normalizing accuracy by test set size
-local accuracy=hit_count/opt.test_set_size
+-- computing accuracy
+local accuracy=compute_accuracy(opt.model,set_size,model_prediction,gold_predictions,nconfounders_per_sequence)
 
 print('test set accuracy is ' .. accuracy)
-
 
 --if requested, print guesses, their probs and the overall prob distribution 
 --to file
