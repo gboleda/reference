@@ -345,13 +345,13 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
    local tuples_start_at_list = torch.Tensor(data_set_size) -- where in the model input (tuples) the tuples for the current sequence start
    local tuples_end_at_list = torch.Tensor(data_set_size) -- where in the model input (tuples) the tuples for the current sequence end
 
-   -- index_list contains, for each sample, the index of the correct
+   -- idx_list contains, for each sample, the index of the correct
    -- image (the one corresponding to the word) into the corresponding
    -- ordered set of tensors in image_set_list
    -- if a sample is deviant (with index 0 or -1), the corresponding
    -- index will be image_set_size+1, ONLY FOR MODELS THAT CAN HANDLE
    -- DEVIANT CASES!!!!
-   local index_list = torch.Tensor(data_set_size)
+   local idx_list = torch.Tensor(data_set_size)
    
    local word_query_t = {}
    local target_image_t = {}
@@ -378,7 +378,7 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
 	 local query=current_data[1]
 	 local current_images_count = #current_data-2
 	 nconfounders_list[i]=current_images_count-1 -- recording number of confounders in sequence; = number of images -1 (target)
-	 index_list[i]=current_data[2] -- recording index of the right image
+	 idx_list[i]=current_data[2] -- recording index of the right image
 	 local target_position=current_data[2]+2 -- vector of the image in position gold index + 2
 	 local target_image=current_data[target_position]
 	 for j=1,current_images_count do
@@ -423,7 +423,7 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
       -- print(tostring('---'))
    end
    data_table={word_query_list,target_image_list,confounder_list}
-   return data_table, index_list, nconfounders_list, tuples_start_at_list, tuples_end_at_list
+   return data_table, idx_list, nconfounders_list, tuples_start_at_list, tuples_end_at_list
 end
 
 -- REAL DATA TO HERE

@@ -1,6 +1,7 @@
 -- preambles
 
 require('nngraph')
+require('math')
 require('LinearNB') -- for linear mappings without bias
 
 cmd = torch.CmdLine()
@@ -80,35 +81,24 @@ tuples_start_at,tuples_end_at=
       v_input_size,
       opt.image_set_size)
 
-print('reading in the model from file' .. opt.model_file)
+print('reading in the model from file ' .. opt.model_file)
 model = torch.load(opt.model_file)
 
 print('computing model prediction on test data')
 -- passing all test samples through the trained network
 local model_prediction=model:forward(input_table)
 
--- initializing variables for below
-local gold_predictions=index_list
-if opt.model == 'max_margin_bl' then
-   -- tensors for gold predictions are just a long list of 1s (see models file)
-   gold_predictions=torch.ones(input_table[1]:size(1))
-end
-local set_size=gold_predictions:size(1)
-if opt.model=='max_margin_bl' then
-   set_size=nconfounders_per_sequence:size(1)
-end
-
+local set_size=index_list:size(1)
 -- computing accuracy
-local accuracy=compute_accuracy(opt.model,set_size,model_prediction,gold_predictions,nconfounders_per_sequence)
+local accuracy,guessed_item_indices,guessed_item_probs,individual_model_predictions=model_accuracy_and_predictions(opt.model,set_size,opt.image_set_size,model_prediction,index_list,nconfounders_per_sequence)
 
 print('test set accuracy is ' .. accuracy)
 
 --if requested, print guesses, their probs and the overall prob distribution 
 --to file
 if output_guesses_file then
-   local all_probs=torch.exp(model_prediction)
-   -- in debug mode, we also return dot vectors and deviance cell
    local extended_dot_vector = nil
+   -- in debug mode, we also return dot vectors and deviance cell (when available)
    if (opt.debug==1) then
       local nodes = model:listModules()[1]['forwardnodes']
       for _,node in ipairs(nodes) do
@@ -117,21 +107,8 @@ if output_guesses_file then
 	 end
       end
    end
-   local f = io.open(output_guesses_file,"w")
-   for i=1,model_max_probs:size(1) do
-      f:write(model_guesses[i][1]," ",model_max_probs[i][1])
-      for j=1,all_probs:size(2) do
-	 f:write(" ",all_probs[i][j])
-      end
-      if (opt.debug==1) then
-	 for k=1,extended_dot_vector:size(2) do
-	    f:write(" ",extended_dot_vector[i][k])
-	 end
-      end
-      f:write("\n")
-   end
-   f:flush()
-   f.close()
+   print("writing individual model predictions to file " .. output_guesses_file)
+   print_model_predictions_to_file(output_guesses_file,opt.model,guessed_item_indices,guessed_item_probs,individual_model_predictions,extended_dot_vector)
 end
 
 

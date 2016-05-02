@@ -42,7 +42,7 @@ cmd:option('--normalize_embeddings',0, 'whether to normalize word and image repr
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid|test) to be in the folder where program is called (train and valid mandatory, test is considered only if test_set_size is larger than 0). Format: one stimulus set per line: first field linguistic referring expression (RE), second field index of the right image for the RE in the image set (see next), rest of the fields image set (n indices of the images in the image dataset')
 cmd:option('--modifier_mode',0,'if set to 1, we assume protocol files to have colon-delimited modifiers prefixed to RE and each image')
 cmd:option('--test_set_size',0, 'test set size (if 0 as in default, we assume there are no test data)')
-cmd:option('--output_guesses_file','','if this file is defined, at test time we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
+cmd:option('--output_guesses_file','','DEPRECATED: option disabled. Use test_with_trained_file.lua instead. WAS: if this file is defined, at test time we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 cmd:option('--skip_test_loss',0,'if set to value different from 0, loss will not be calculated on test data (to deal with deviant conditions)')
 -- the following options are only used if we work with toy data such
 -- that we generate a training and a validation set, rather than
@@ -119,9 +119,10 @@ end
 --[[
 ****** checking command-line arguments ******
 --]]
-local output_guesses_file=nil -- gbt why this instead of simply setting opt.output_guesses_file to nil by default and using it throughout?
+local output_guesses_file=nil
 if opt.output_guesses_file~='' then
    output_guesses_file=opt.output_guesses_file
+   print('WARNING: you requested output guesses, but this option is disabled; use test_with_trained_file.lua instead')
 end
 -- if test size is 0, we won't output test guesses to a file
 -- and it makes no sense to pass the skip_test_loss option
@@ -384,17 +385,17 @@ function test(input_table,gold_predictions,nconfounders,output_print_file,skip_t
       -- NB: according to documentation, the criterion function already normalizes loss!
       average_loss = criterion:forward(model_prediction,gold_predictions)
    end
-
-   accuracy=compute_accuracy(opt.model,set_size,model_prediction,gold_predictions,nconfounders)
-   --if requested, print guesses and their log probs to file
-   if output_print_file then
-         local f = io.open(output_print_file,"w")
-	 for i=1,model_max_probs:size(1) do
-	    f:write(model_guesses[i][1]," ",model_max_probs[i][1],"\n")
-	 end
-	 f:flush()
-	 f.close()
-   end
+   accuracy=model_accuracy(opt.model,set_size,model_prediction,gold_predictions,nconfounders)
+   -- gbt: disabled. Use test_with_trained_file.lua instead
+   -- --if requested, print guesses and their log probs to file
+   -- if output_print_file then
+   --       local f = io.open(output_print_file,"w")
+   -- 	 for i=1,model_max_probs:size(1) do
+   -- 	    f:write(model_guesses[i][1]," ",model_max_probs[i][1],"\n")
+   -- 	 end
+   -- 	 f:flush()
+   -- 	 f.close()
+   -- end
    return average_loss,accuracy
 end
 
