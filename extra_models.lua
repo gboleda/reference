@@ -160,7 +160,8 @@ function ff_reference_with_similarity_sum_cell(t_inp_size,v_inp_size,img_set_siz
 
       local curr_input = nn.Identity()()
       table.insert(inputs,curr_input)
-      local reference_vector = nn.LinearNB(v_inp_size,ref_size)(curr_input)
+      reference_vector_name='reference_vector_' .. i
+      local reference_vector = nn.LinearNB(v_inp_size,ref_size)(curr_input):annotate{name=reference_vector_name}
       if i>1 then -- share parameters of each reference vector
 	 reference_vector.data.module:share(reference_vectors[1].data.module,'weight','bias','gradWeight','gradBias')
      end
@@ -318,6 +319,7 @@ function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
    local query = nn.LinearNB(t_inp_size, ref_size)(curr_input):annotate{name='query'}
+
 
    -- reshaping the ref_size-dimensional text vector into 
    -- a 1xref_size-dimensional vector for the multiplication below
