@@ -271,7 +271,7 @@ function create_input_structures_from_file_for_other_models(i_file,data_set_size
 		   non0_slots_count_list:resize(index_list:size(1),1))
    end
    table.insert(output_table,word_query_list)
-   for j=1,opt.image_set_size do
+   for j=1,image_set_size do
       table.insert(output_table,image_set_list[j])
    end
    return output_table, index_list
