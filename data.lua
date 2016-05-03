@@ -271,7 +271,7 @@ function create_input_structures_from_file_for_other_models(i_file,data_set_size
 		   non0_slots_count_list:resize(index_list:size(1),1))
    end
    table.insert(output_table,word_query_list)
-   for j=1,opt.image_set_size do
+   for j=1,image_set_size do
       table.insert(output_table,image_set_list[j])
    end
    return output_table, index_list
@@ -308,24 +308,6 @@ function unpack_for_max_margin(indices,nconfounders,data,start_at_list,end_at_li
    return output_tuples,new_set_size
 
 end
-   -- -- old, to debug function unpack...
-   -- print('ori_set_size:')
-   -- print(ori_set_size)
-   -- print('new_set_size:')
-   -- print(new_set_size)
-      -- print(tostring('---'))
-      -- print(tostring('i:'))
-      -- print(tostring(i))
-      -- print('start_at:')
-      -- print(start_at_list_out[i])
-      -- print('end_at:')
-      -- print(end_at_list_out[i])
-      -- print('nelem:')
-      -- print(nconf_list_out[i])
-      -- print('new:')
-      -- print(new)
-      -- print(tostring('---'))
-      -- print(output_tuples[j][{{},{1,5}}])
 
 function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t_input_size,v_input_size)
    print('reading protocol file ' .. i_file)
@@ -379,7 +361,17 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
 	 local current_images_count = #current_data-2
 	 nconfounders_list[i]=current_images_count-1 -- recording number of confounders in sequence; = number of images -1 (target)
 	 idx_list[i]=current_data[2] -- recording index of the right image
-	 local target_position=current_data[2]+2 -- vector of the image in position gold index + 2
+	 local target_position=nil
+	 -- handling deviant cases
+	 if idx_list[i]<1 then
+	    -- if (opt.deviance_mode==1) then -- NOTE: option relevant for test_with_trained_file.lua only
+	    target_position=3 -- set first image to target (arbitrary choice), such that we don't screw up the data gathering
+	    -- else
+	    --    error('ERROR: chosen model does not support deviance: ' .. tostring(opt.model))
+	    -- end
+	 else
+	    target_position=current_data[2]+2 -- vector of the image in position gold index + 2
+	 end
 	 local target_image=current_data[target_position]
 	 for j=1,current_images_count do
 	    local id_position=j+2

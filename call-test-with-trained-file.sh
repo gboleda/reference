@@ -24,8 +24,8 @@
 # tesetsize=30
 # # END TINY DATA
 
-model=ff_ref_sim_sum
-#model=max_margin_bl
+#model=ff_ref_sim_sum
+model=max_margin_bl
 
 datadir='/Users/gboleda/Desktop/love-project/data/exp5-upto5-tiny'
 prefixoutput=tiny-deviants

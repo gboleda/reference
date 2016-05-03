@@ -25,6 +25,7 @@ cmd:option('--model','ff_ref', msg)
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 -- other options
 cmd:option('--debug',0,'set to 1 to go through code flagged as for debugging')
+-- DEPRECATED cmd:option('--deviance_mode',0,'compulsory to set to 1 when applying the model to a file with deviants')
 opt = cmd:parse(arg or {})
 print(opt)
 
@@ -89,9 +90,15 @@ print('computing model prediction on test data')
 local model_prediction=model:forward(input_table)
 
 local set_size=index_list:size(1)
+-- if opt.deviance_mode==1 then
+--    print('WARNING: accuracy computation for deviants not available yet')
+--    accuracy,individual_model_predictions=model_predictions_for_deviants(set_size,opt.image_set_size,model_prediction,nconfounders_per_sequence)
+-- else
 -- computing accuracy
-local accuracy,guessed_item_indices,guessed_item_probs,individual_model_predictions=model_accuracy_and_predictions(opt.model,set_size,opt.image_set_size,model_prediction,index_list,nconfounders_per_sequence)
+accuracy,guessed_item_indices,guessed_item_probs,individual_model_predictions=model_accuracy_and_predictions(opt.model,set_size,opt.image_set_size,model_prediction,index_list,nconfounders_per_sequence)
+-- end
 
+print('WARNING: if file contains deviants, accuracy computation will not be reliable')
 print('test set accuracy is ' .. accuracy)
 
 --if requested, print guesses, their probs and the overall prob distribution 
@@ -108,7 +115,10 @@ if output_guesses_file then
       end
    end
    print("writing individual model predictions to file " .. output_guesses_file)
+   -- if opt.deviance_mode==1 then
+   --    -- for deviants, we print the gold label and the dot products for each image
+   --    print_model_predictions_to_file_for_deviants(output_guesses_file,index_list,individual_model_predictions)
+   -- else
    print_model_predictions_to_file(output_guesses_file,opt.model,guessed_item_indices,guessed_item_probs,individual_model_predictions,extended_dot_vector)
+--   end
 end
-
-
