@@ -40,9 +40,6 @@ test_input_table, test_index_list=
       v_input_size,
       5)
 
---debug
-print(test_input_table)
-
 print('reading in the model')
 model = torch.load(opt.model_file)
 
