@@ -1,7 +1,7 @@
 # TRAIN AND APPLY MODEL (FOCUSING ON MAX MARGIN BASELINE)
 # gbt, May 2016
 # NOTE: call from within the Lua code folder
- 
+
 date
 
 # --- 0. OBTAIN THE RELEVANT DEVS/NODEVS FILES
@@ -26,7 +26,7 @@ ref_size=300
 # WHITE CAT
 
 # MODEL PARAMETERS
-# modifier_mode=0
+modifier_mode=0
 
 # BEGIN TINY DATA
 # datadir='/Users/gboleda/Desktop/love-project/data/exp5-upto5-tiny'
@@ -35,8 +35,8 @@ ref_size=300
 # tesetsize=39
 # END TINY DATA
 # # BEGIN REAL DATA
-# datadir='/Users/gboleda/Desktop/love-project/data/new-exp3'
-# prefixinput=$stimuli-nodevs
+datadir='/Users/gboleda/Desktop/love-project/data/new-exp3'
+prefixoutput=tc-new-exp3-max-margin
 # trsetsize=27981
 # vsetsize=3503
 # tesetsize=6978
@@ -45,7 +45,7 @@ ref_size=300
 # BIOLOGIST WOMAN
 
 # MODEL PARAMETERS
-modifier_mode=1
+# modifier_mode=1
 
 # # BEGIN TINY DATA
 # datadir='/Users/gboleda/Desktop/love-project/data/bw-tiny'
@@ -56,8 +56,8 @@ modifier_mode=1
 # # END TINY DATA
 # # BEGIN REAL DATA
 # datadir='/Users/gboleda/Desktop/love-project/data/exp2-4a'
-datadir='/home/boledatorrent/reference/data/exp2-4a'
-prefixoutput=bw-exp2-4a-max-margin
+# datadir='/home/boledatorrent/reference/data/exp2-4a'
+# prefixoutput=bw-exp2-4a-max-margin
   # 12124 stimuli-devs.train
   #  6906 stimuli-nodevs.test
   # 27876 stimuli-nodevs.train
@@ -71,7 +71,10 @@ prefixoutput=bw-exp2-4a-max-margin
 
 # PARAMETERS FOR TRAINING
 prefixfortraining=stimuli-nodevs # we train the model on non-deviant data only
-modelfile=
+
+# TC
+
+# BW
 # # BEGIN TINY DATA
 # trsetsize=34
 # vsetsize=31
@@ -83,7 +86,7 @@ vsetsize=3448
 tesetsize=6906
 # END REAL DATA
 
-th main.lua --model $model --training_set_size $trsetsize --validation_set_size $vsetsize --test_set_size $tesetsize --image_set_size $image_set_size --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --protocol_prefix $datadir/$prefixfortraining --max_epochs $max_epochs --min_epochs $min_epochs --normalize_embeddings 1 --reference_size $ref_size --learning_rate $learning_rate --momentum $momentum --mini_batch_size $mini_batch_size --save_model_to_file $prefixoutput.model --modifier_mode $modifier_mode
+# th main.lua --model $model --training_set_size $trsetsize --validation_set_size $vsetsize --test_set_size $tesetsize --image_set_size $image_set_size --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --protocol_prefix $datadir/$prefixfortraining --max_epochs $max_epochs --min_epochs $min_epochs --normalize_embeddings 1 --reference_size $ref_size --learning_rate $learning_rate --momentum $momentum --mini_batch_size $mini_batch_size --save_model_to_file $prefixoutput.model --modifier_mode $modifier_mode
 
 date
 
@@ -91,22 +94,32 @@ date
 
 # training file with deviants, to obtain the range for the thresholds
 file=stimuli-devs.train
-filesize=12124
+# TC
+filesize=12019
+# BW
+# filesize=12124
 predoutfile=$file-$prefixoutput.preds
 th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
 
-# validation file, to optimize the threshold
-file=stimuli.valid
-filesize=5000
-predoutfile=$file-$prefixoutput.preds
-th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
+# # validation file, to optimize the threshold
+# file=stimuli.valid
+# filesize=5000
+# predoutfile=$file-$prefixoutput.preds
+# th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
 
-# test file, to evaluate the resulting model
-file=stimuli.test
-filesize=10000
-predoutfile=$file-$prefixoutput.preds
-th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
+# # test file, to evaluate the resulting model
+# file=stimuli.test
+# filesize=10000
+# predoutfile=$file-$prefixoutput.preds
+# th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
 
 date
 
 echo 'done!'
+
+# NOTES
+
+# for the-cat: tc-new-exp3-max-margin.out:
+# on non-deviants:    
+# validation accuracy: 0.85326862689124	
+# test accuracy: 0.85282315849814	
