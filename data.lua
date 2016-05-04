@@ -277,7 +277,10 @@ function create_input_structures_from_file_for_other_models(i_file,data_set_size
    return output_table, index_list
 end
 
-function unpack_for_max_margin(indices,nconfounders,data,start_at_list,end_at_list) -- 
+function unpack_for_max_margin(indices,nconfounders,data,start_at_list,end_at_list)
+   -- gbt: not used for anything, but it took me so long to program it
+   -- that I'm leaving it for decoration
+   
    -- go from the indices to the corresponding slices in the data tuples
    -- returns {query, target, confounder}-tensor table for input to max margin bl, and 
 
@@ -309,7 +312,7 @@ function unpack_for_max_margin(indices,nconfounders,data,start_at_list,end_at_li
 
 end
 
-function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t_input_size,v_input_size)
+function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t_in_size,v_in_size)
    print('reading protocol file ' .. i_file)
 
    -- the data will be structured as follows: a table of three
@@ -327,18 +330,15 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
    local tuples_start_at_list = torch.Tensor(data_set_size) -- where in the model input (tuples) the tuples for the current sequence start
    local tuples_end_at_list = torch.Tensor(data_set_size) -- where in the model input (tuples) the tuples for the current sequence end
 
-   -- idx_list contains, for each sample, the index of the correct
+   -- index_list contains, for each sample, the index of the correct
    -- image (the one corresponding to the word) into the corresponding
    -- ordered set of tensors in image_set_list
-   -- if a sample is deviant (with index 0 or -1), the corresponding
-   -- index will be image_set_size+1, ONLY FOR MODELS THAT CAN HANDLE
-   -- DEVIANT CASES!!!!
-   local idx_list = torch.Tensor(data_set_size)
+   local index_list = torch.Tensor(data_set_size)
    
+   -- creating a 'virtual file' so I can set up the dimensionality of the tensors
    local word_query_t = {}
    local target_image_t = {}
    local confounder_t = {}
-   -- need to create a 'virtual file' so I can set up the dimensionality of the tensors
    local f = io.input(i_file)
    local i=1 -- line (datapoint) counter
    local ntuples=1 -- number of {query, target, confounder} tuples to be created
@@ -351,24 +351,20 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
 	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
-	 -- first field is word id, second field gold index, other
-	 -- fields image ids
+	 -- first field is word id (or modifier:word id if in modifier mode), second field gold index, other
+	 -- fields image ids (or modifier:image ids if in modifier mode)
+	 -- example: accumulator	2	granddaughter_246169	accumulator_445171	gilt_439010	dairy_278492
 	 -- print(tostring('---'))
 	 -- io.write(tostring(current_line .. "\n"))
-	 -- example: accumulator	2	granddaughter_246169	accumulator_445171	gilt_439010	dairy_278492
 	 tuples_start_at_list[i]=ntuples
 	 local query=current_data[1]
 	 local current_images_count = #current_data-2
 	 nconfounders_list[i]=current_images_count-1 -- recording number of confounders in sequence; = number of images -1 (target)
-	 idx_list[i]=current_data[2] -- recording index of the right image
+	 index_list[i]=current_data[2] -- recording index of the right image
 	 local target_position=nil
 	 -- handling deviant cases
-	 if idx_list[i]<1 then
-	    -- if (opt.deviance_mode==1) then -- NOTE: option relevant for test_with_trained_file.lua only
+	 if index_list[i]<1 then
 	    target_position=3 -- set first image to target (arbitrary choice), such that we don't screw up the data gathering
-	    -- else
-	    --    error('ERROR: chosen model does not support deviance: ' .. tostring(opt.model))
-	    -- end
 	 else
 	    target_position=current_data[2]+2 -- vector of the image in position gold index + 2
 	 end
@@ -393,36 +389,68 @@ function create_input_structures_from_file_for_max_margin(i_file,data_set_size,t
    print("     total number of datapoints (corresponding to total images in " .. tostring(i-1) .. " sequences): " .. tostring(ntuples))
 
    -- initializing the data structures to hold the data
-   
-   -- word_query_list is a ntuples x t_input_size tensor holding query
+
+   -- word_query_list is a ntuples x t_in_size tensor holding query
    -- word representations
-   local word_query_list = torch.Tensor(ntuples,t_input_size)
-   -- target_image_query_list is a ntuples x v_input_size tensor
+   local word_query_list = nil
+   -- if we are in the experiment with the modifiers, we will
+   -- concatenate modifier and head, so we must double the size
+   if (opt.modifier_mode==1) then
+      word_query_list=torch.Tensor(ntuples,t_in_size*2)
+   else
+      word_query_list = torch.Tensor(ntuples,t_in_size)
+   end
+
+   -- target_image_query_list is a ntuples x v_in_size tensor
    -- holding target image representations
-   local target_image_list=torch.Tensor(ntuples,v_input_size)
-   -- confounder_query_list is a ntuples x v_input_size tensor holding
+   -- if we have modifiers, size will be that of word+image embedding
+   local target_image_list=nil
+   if (opt.modifier_mode==1) then
+      target_image_list=torch.Tensor(ntuples,t_in_size+v_in_size)
+   else
+      target_image_list=torch.Tensor(ntuples,v_in_size)
+   end
+   
+   -- confounder_query_list is a ntuples x v_in_size tensor holding
    -- confounder representations
-   local confounder_list=torch.Tensor(ntuples,v_input_size)
+   -- if we have modifiers, size will be that of word+image embedding
+   local confounder_list=nil
+   if (opt.modifier_mode==1) then
+      confounder_list=torch.Tensor(ntuples,t_in_size+v_in_size)
+   else
+      confounder_list=torch.Tensor(ntuples,v_in_size)
+   end
    for j=1,ntuples do
       -- io.write(word_query_t[j] .. ", " .. target_image_t[j] .. ", " .. confounder_t[j] .. "\n")
-      word_query_list[j]=word_embeddings[word_query_t[j]]
-      target_image_list[j]=image_embeddings[target_image_t[j]]
-      confounder_list[j]=image_embeddings[confounder_t[j]]
+      -- example with modifs: employ:midwife	2	allocate:midwife_72468	employ:midwife_72572
+
+      if (opt.modifier_mode==1) then
+	 local modifier_head=word_query_t[j]:split(":")
+	 word_query_list[j]=torch.cat(word_embeddings[modifier_head[1]],word_embeddings[modifier_head[2]],1)
+	 local modifier_img=target_image_t[j]:split(":")
+	 target_image_list[j]=torch.cat(word_embeddings[modifier_img[1]],image_embeddings[modifier_img[2]],1)
+	 modifier_img=confounder_t[j]:split(":")
+	 confounder_list[j]=torch.cat(word_embeddings[modifier_img[1]],image_embeddings[modifier_img[2]],1)
+      else
+	 word_query_list[j]=word_embeddings[word_query_t[j]]
+	 target_image_list[j]=image_embeddings[target_image_t[j]]
+	 confounder_list[j]=image_embeddings[confounder_t[j]]
+      end
       -- print(tostring('---'))
       -- print(word_query_list[{{j},{1,5}}])
       -- print(target_image_list[{{j},{1,5}}])
       -- print(confounder_list[{{j},{1,5}}])
       -- print(tostring('---'))
    end
-   data_table={word_query_list,target_image_list,confounder_list}
-   return data_table, idx_list, nconfounders_list, tuples_start_at_list, tuples_end_at_list
+   -- output_table contains the data that will be used as input to the model
+   output_table={word_query_list,target_image_list,confounder_list}
+   return output_table, index_list, nconfounders_list, tuples_start_at_list, tuples_end_at_list
 end
 
 -- REAL DATA TO HERE
 
 function dummy()
    if opt.model=='max_margin_bl' then
-   --   set_size=nconfounders:size(1)
       print('piiip')
    end
 end
