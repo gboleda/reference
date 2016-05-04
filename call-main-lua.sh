@@ -19,18 +19,19 @@ date
 # BIOLOGIST WOMAN
 
 # BEGIN TINY DATA
-datadir='/Users/gboleda/Desktop/love-project/data/bw-tiny'
-prefixoutput=bw-tiny
-trsetsize=34
-vsetsize=31
-tesetsize=35
+# datadir='/Users/gboleda/Desktop/love-project/data/bw-tiny'
+# prefixoutput=bw-tiny
+# trsetsize=34
+# vsetsize=31
+# tesetsize=35
 # END TINY DATA
-# # BEGIN REAL DATA
-# datadir='/Users/gboleda/Desktop/love-project/data/exp2-4a'
-# trsetsize=27981
-# vsetsize=3503
-# tesetsize=6978
-# # END REAL DATA
+# BEGIN REAL DATA
+datadir='/Users/gboleda/Desktop/love-project/data/exp2-4a'
+prefixoutput=bw-exp2-4a
+trsetsize=27876
+vsetsize=3448
+tesetsize=6906
+# END REAL DATA
 
 # MODEL PARAMETERS
 prefixfortraining=stimuli-nodevs # we train the model on non-deviant data only
@@ -52,4 +53,3 @@ echo datadir: $datadir
 th main.lua --model $model --training_set_size $trsetsize --validation_set_size $vsetsize --test_set_size $tesetsize --image_set_size $image_set_size --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --protocol_prefix $datadir/$prefixfortraining --max_epochs $max_epochs --min_epochs $min_epochs --normalize_embeddings 1 --reference_size $ref_size --learning_rate $learning_rate --momentum $momentum --mini_batch_size $mini_batch_size --save_model_to_file $modelfile --modifier_mode $modifier_mode
 
 date
-
