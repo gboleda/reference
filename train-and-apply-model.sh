@@ -99,7 +99,7 @@ filesize=12019
 # BW
 # filesize=12124
 predoutfile=$file-$prefixoutput.preds
-th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
+# th test_with_trained_file.lua --model_file $prefixoutput.model --model $model --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --image_set_size $image_set_size --normalize_embeddings 1 --test_file $datadir/$file --test_set_size $filesize --output_guesses_file $predoutfile --modifier_mode $modifier_mode
 
 # # validation file, to optimize the threshold
 # file=stimuli.valid
