@@ -15,9 +15,13 @@ resultsdir='results'
 # prefixoutput=tiny-deviants
 # END TINY DATA
 # BEGIN REAL DATA
-datadir='/Users/gboleda/Desktop/love-project/data/new-exp3'
-prefix=tc-new-exp3-max-margin
+#datadir='/Users/gboleda/Desktop/love-project/data/new-exp3'
+#prefix=tc-new-exp3-max-margin
 # END REAL DATA
+
+# BIOLOGIST WOMAN
+datadir='/home/gemma.boledatorrent/white-cat-experiment/conll-data/exp2-4a'
+prefix=bw-exp2-4a-max-margin
 
 echo datadir: $datadir
 
@@ -44,9 +48,13 @@ done
 # # AVERAGE MAX: 0.133836451621809
 # # AVERAGE DIFF: 0.104982467192016
 
-# TC - new-exp3
-threshold0=0.1
-threshold1=0.03
+# # TC - new-exp3
+# threshold0=0.1
+# threshold1=0.03
+
+# BW
+threshold0=0.4
+threshold1=0.07
 
 # --- 5. Obtain accuracy on the test file and print adjusted predictions (predictions taking into account deviance)
 
