@@ -13,47 +13,39 @@ $multithreshold = shift;
 $thitcount=0; $phitcount=0; $mirhitcount=0; $murhitcount=0;
 $tcount=0; $pcount=0; $mircount=0; $murcount=0; $pdevcount=0;
 while(<>){
-    print $_;
-    # chomp;
-    # print "$_: ";
-    # ($gold, $pred, $max, @PREDS) = split(" ", $_);
-    # $tcount++;
-    # # by default, gold and pred are as they are; changed if they are deviant
-    # $ngold=$gold;
-    # $npred=$pred;
-    # $toprintpred=$pred; # this is for printing purposes (different than pred for accuracy computation)
-    # print "$gold $pred";
+    chomp;
+    ($gold, $pred, $max, @PREDS) = split(" ", $_);
+    $tcount++;
+    # by default, gold and pred are as they are; changed if they are deviant
+    $ngold=$gold;
+    $npred=$pred;
+    $toprintpred=$pred; # this is for printing purposes (different than pred for accuracy computation)
     # print "\t---\t"; 
-    # # print join(" ",@PREDS);
-    # if($gold==0 or $gold==-1){$ngold=6};
-    # if ($max < $zerothreshold){$npred=6;$toprintpred=0};
-    # @SORTED=sort(@PREDS);
-    # $max2=$SORTED[-2];
-    # $maxdiff=$max-$max2;
-    # print "$max $max2";
-    # print "\t---\t"; 
+    if($gold==0 or $gold==-1){$ngold=6};
+    if ($max < $zerothreshold){$npred=6;$toprintpred=0};
+    @SORTED=sort(@PREDS);
+    $max2=$SORTED[-2];
+    $maxdiff=$max-$max2;
     # print join(" ",@SORTED);
-    # if ($maxdiff < $multithreshold){$npred=6;$toprintpred=-1};
-    # if($ngold==$npred){$thitcount++;}
-    # if($gold==0){$mircount++; if($ngold==$npred){$mirhitcount++;}}
-    # elsif($gold==-1){$murcount++; if($ngold==$npred){$murhitcount++;}}
-    # else{
-    # 	$pcount++; 
-    # 	if($ngold==$npred){$phitcount++;}
-    # 	elsif($npred==6){$pdevcount++}
-    # }
-    # #print join(" ",($gold, $pred, $toprintpred, @PREDS));
-    # print "\n";
+    if ($maxdiff < $multithreshold){$npred=6;$toprintpred=-1};
+    if($ngold==$npred){$thitcount++;}
+    if($gold==0){$mircount++; if($ngold==$npred){$mirhitcount++;}}
+    elsif($gold==-1){$murcount++; if($ngold==$npred){$murhitcount++;}}
+    else{
+    	$pcount++; 
+    	if($ngold==$npred){$phitcount++;}
+    	elsif($npred==6){$pdevcount++}
+    }
+    print join(" ",($gold, $pred, $toprintpred, @PREDS));
+    print "\n";
 }
-$taccuracy=$thitcount/$tcount;
-$paccuracy=$phitcount/$pcount;
-$miraccuracy=$mirhitcount/$mircount;
-$muraccuracy=$murhitcount/$murcount;
-$wrongdeviants=$pdevcount/$pcount;
-# print STDERR "THRESHOLDS: MISSING REF = $zerothreshold MULTI REF = $multithreshold\n";
-# print STDERR "TOTAL ACCURACY: $taccuracy\n";
-# print STDERR "POINTING ACCURACY: $paccuracy; PREDICTED TO BE DEVIANT: $wrongdeviants\n";
-# print STDERR "MISSREF ACCURACY: $miraccuracy\n";
-# print STDERR "MULTREF ACCURACY: $muraccuracy\n";
-# print STDERR "$zerothreshold $multithreshold $taccuracy\n";
-print STDERR "$zerothreshold $multithreshold $taccuracy\n";
+if ($tcount > 0){$taccuracy=$thitcount/$tcount;}else{$taccuracy="NA"}
+if ($pcount > 0){$paccuracy=$phitcount/$tcount; $wrongdeviants=$pdevcount/$pcount;}else{$paccuracy="NA"; $wrongdeviants=0}
+if ($mircount > 0){$miraccuracy=$mirhitcount/$tcount;}else{$miraccuracy="NA"}
+if ($murcount > 0){$muraccuracy=$murhitcount/$tcount;}else{$muraccuracy="NA"}
+print STDERR "THRESHOLDS: MISSING REF = $zerothreshold MULTI REF = $multithreshold\n";
+print STDERR "TOTAL ACCURACY (on $tcount): $taccuracy\n";
+print STDERR "POINTING ACCURACY (on $pcount): $paccuracy; PREDICTED TO BE DEVIANT: $wrongdeviants\n";
+print STDERR "MISSREF ACCURACY (on $mircount): $miraccuracy\n";
+print STDERR "MULTREF ACCURACY (on $murcount): $muraccuracy\n";
+# print STDOUT "$zerothreshold $multithreshold $taccuracy\n";
