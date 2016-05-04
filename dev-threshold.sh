@@ -32,7 +32,7 @@
 
 # optimizing threshold on validation data
 
-infile=stimuli.valid-new-exp3-max_margin_bl-0.5-300-0.09-0.0001-0.09-20-1.model.preds.andgold
+infile=stimuli.valid-$prefix.predandgold
 ofile=threshold-optimization
 rm $ofile
 for t0 in -0.1 0 0.1 0.2 0.3 0.4
