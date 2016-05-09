@@ -10,7 +10,7 @@
 % images
 
 % HARD-CODED file output name:
-% new_convnet_guesses.txt
+% newest_convnet_guesses.txt
 
 run  /home/ravi.shekhar/matconvnet-1.0-beta17/matlab/vl_setupnn
 
@@ -20,7 +20,7 @@ net = load('imagenet-vgg-verydeep-19.mat') ;
 % load images
 imagefiles = dir('images/*.jpg');
 
-out_file = fopen('new_convnet_guesses.txt','w');
+out_file = fopen('newest_convnet_guesses.txt','w');
 
 for im_index=1:length(imagefiles)
   im = imread(fullfile('images',imagefiles(im_index).name));
