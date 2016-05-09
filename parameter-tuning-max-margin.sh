@@ -14,11 +14,11 @@ trainsize=10000
 validsize=3000
 testsize=5000
 
-for margin in 0.1 0.5 1 # best seems to be 0.5
+for margin in 0.5 # 0.1 0.5 1
 do
-    for ref_size in 200 # 300
+    for ref_size in 300 # 200
     do
-	for learning_rate in 0.09 0.03 0.009 # best seems to be 0.09
+	for learning_rate in 0.09 # 0.03 0.009
 	do
 	date
 	echo CURRENT PARAMETERS: $margin $ref_size $learning_rate 

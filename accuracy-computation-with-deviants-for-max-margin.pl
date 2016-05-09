@@ -1,9 +1,14 @@
 #!/usr/bin/perl -w
 
+# example:
+# perl accuracy-computation-with-deviants-for-max-margin.pl 0.133836451621809 0.104982467192016 yes < testing.predandgold > testing.maxmarginpreds
+# perl accuracy-computation-with-deviants-for-max-margin.pl 0.133836451621809 0.104982467192016 no < testing.predandgold >> threshold-optimization
+
 use List::Util max;
 
 $zerothreshold = shift;
 $multithreshold = shift;
+$printadjpred = shift;
 
 # Example:
 # 0 5 0.027808980226855 -0.026260225584297 -0.027621299657854 -0.060993691776221 0.013054225188681 0.027808980226855
@@ -28,24 +33,37 @@ while(<>){
     $maxdiff=$max-$max2;
     # print join(" ",@SORTED);
     if ($maxdiff < $multithreshold){$npred=6;$toprintpred=-1};
-    if($ngold==$npred){$thitcount++;}
-    if($gold==0){$mircount++; if($ngold==$npred){$mirhitcount++;}}
-    elsif($gold==-1){$murcount++; if($ngold==$npred){$murhitcount++;}}
+    if($ngold==$npred){$thitcount++}
+    if($gold==0){
+	$mircount++; 
+	if($ngold==$npred){$mirhitcount++}
+    }
+    elsif($gold==-1){
+	$murcount++;
+	if($ngold==$npred){$murhitcount++;}
+    }
     else{
     	$pcount++; 
     	if($ngold==$npred){$phitcount++;}
     	elsif($npred==6){$pdevcount++}
     }
-    print join(" ",($gold, $pred, $toprintpred, @PREDS));
-    print "\n";
+    if($printadjpred eq "yes"){
+	print join(" ",($gold, $pred, $toprintpred, @PREDS));
+	print "\n";
+    }
 }
 if ($tcount > 0){$taccuracy=$thitcount/$tcount;}else{$taccuracy="NA"}
-if ($pcount > 0){$paccuracy=$phitcount/$tcount; $wrongdeviants=$pdevcount/$pcount;}else{$paccuracy="NA"; $wrongdeviants=0}
-if ($mircount > 0){$miraccuracy=$mirhitcount/$tcount;}else{$miraccuracy="NA"}
-if ($murcount > 0){$muraccuracy=$murhitcount/$tcount;}else{$muraccuracy="NA"}
-print STDERR "THRESHOLDS: MISSING REF = $zerothreshold MULTI REF = $multithreshold\n";
-print STDERR "TOTAL ACCURACY (on $tcount): $taccuracy\n";
-print STDERR "POINTING ACCURACY (on $pcount): $paccuracy; PREDICTED TO BE DEVIANT: $wrongdeviants\n";
-print STDERR "MISSREF ACCURACY (on $mircount): $miraccuracy\n";
-print STDERR "MULTREF ACCURACY (on $murcount): $muraccuracy\n";
-# print STDOUT "$zerothreshold $multithreshold $taccuracy\n";
+if ($pcount > 0){$paccuracy=$phitcount/$pcount; $wrongdeviants=$pdevcount/$pcount;}else{$paccuracy="NA"; $wrongdeviants=0}
+if ($mircount > 0){$miraccuracy=$mirhitcount/$mircount;}else{$miraccuracy="NA"}
+if ($murcount > 0){$muraccuracy=$murhitcount/$murcount;}else{$muraccuracy="NA"}
+
+if($printadjpred eq "yes"){
+    print STDERR "Thresholds: missing ref = $zerothreshold multi ref = $multithreshold\n";
+    print STDERR "TOTAL ACCURACY (on $tcount): $taccuracy\n";
+    print STDERR "POINTING ACCURACY (on $pcount): $paccuracy; PREDICTED TO BE DEVIANT: $wrongdeviants\n";
+    print STDERR "MISSREF ACCURACY (on $mircount): $miraccuracy\n";
+    print STDERR "MULTREF ACCURACY (on $murcount): $muraccuracy\n";
+}
+else{ # else it's threshold evaluation mode and we only want a summary
+    print STDOUT "$zerothreshold $multithreshold $taccuracy\n";
+}
