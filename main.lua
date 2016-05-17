@@ -51,7 +51,7 @@ cmd:option('--min_filled_image_set_size',0, 'number of image slots that must be 
 cmd:option('--t_input_size',0, 'word embedding size; only used in toy data mode')
 
 -- model parameters
-local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true, ff_ref_sim_sum_revert=true}
+local mst = {ff_ref=true, max_margin_bl=true, ff_ref_with_summary=true, ff_ref_deviance=true, ff_ref_sim_sum=true, ff_ref_sim_sum_unnorm=true}
 local msg='model, to choose from: '
 for k, _ in pairs(mst) do msg = msg .. k .. ', ' end
 cmd:option('--model','ff_ref', msg)
@@ -103,7 +103,7 @@ model_can_handle_deviance=0
 if ((opt.model=="ff_ref_with_summary") or 
       (opt.model=="ff_ref_deviance") or
       (opt.model=="ff_ref_sim_sum") or
-   (opt.model=="ff_ref_sim_sum_revert")) then
+   (opt.model=="ff_ref_sim_sum_unnorm")) then
    model_can_handle_deviance=1
 end
 
@@ -303,7 +303,7 @@ elseif opt.model == 'ff_ref_deviance' then
 elseif opt.model == 'ff_ref_sim_sum' then
    model=ff_reference_with_similarity_sum_cell(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
 elseif opt.model == 'ff_ref_sim_sum_revert' then
-   model=ff_reference_with_similarity_sum_cell_revert(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
+   model=ff_reference_with_similarity_sum_cell_unnorm(model_t_embedding_size,model_v_embedding_size,opt.image_set_size,opt.reference_size,opt.deviance_size,opt.nonlinearity,opt.sum_of_nonlinearities)
 end
 
 -- getting pointers to the model weights and their gradient

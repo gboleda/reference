@@ -227,7 +227,7 @@ end
 
 -- feed-forward network with reference layer and deviance layer on top of 
 -- sum of dot products NO INFO ON NUMBER OF INPUT VECTORS
-function ff_reference_with_similarity_sum_cell_revert(t_inp_size,v_inp_size,img_set_size,ref_size,deviance_size,nonlinearity,sum_of_nonlinearities)
+function ff_reference_with_similarity_sum_cell_unnorm(t_inp_size,v_inp_size,img_set_size,ref_size,deviance_size,nonlinearity,sum_of_nonlinearities)
 
    local inputs = {}
    local reference_vectors = {}
@@ -248,8 +248,9 @@ function ff_reference_with_similarity_sum_cell_revert(t_inp_size,v_inp_size,img_
    for i=1,img_set_size do
 
       local curr_input = nn.Identity()()
-      table.insert(inputs,curr_input)
-      local reference_vector = nn.LinearNB(v_inp_size,ref_size)(curr_input)
+      table.insert(inputs,curr_input
+      reference_vector_name='reference_vector_' .. i
+      local reference_vector = nn.LinearNB(v_inp_size,ref_size)(curr_input):annotate{name=reference_vector_name}
       if i>1 then -- share parameters of each reference vector
 	 reference_vector.data.module:share(reference_vectors[1].data.module,'weight','bias','gradWeight','gradBias')
      end
@@ -272,7 +273,7 @@ function ff_reference_with_similarity_sum_cell_revert(t_inp_size,v_inp_size,img_
 
 
    -- we have a layer on top of the sum of dot vectors to reason about deviance 
-   -- if sum_of_nonlinearities is set to sigmoid or relu, we first pass the dot_vector through a
+   -- if sum_of_nonlinearities is set to sigmoid or relu, we first pass the dot_vector through 
    -- the relevant nonlinearity
    local adimensional_sum_of_dot_vectors=nil
    if (sum_of_nonlinearities == 'sigmoid') then
