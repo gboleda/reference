@@ -248,7 +248,7 @@ function ff_reference_with_similarity_sum_cell_unnorm(t_inp_size,v_inp_size,img_
    for i=1,img_set_size do
 
       local curr_input = nn.Identity()()
-      table.insert(inputs,curr_input
+      table.insert(inputs,curr_input)
       reference_vector_name='reference_vector_' .. i
       local reference_vector = nn.LinearNB(v_inp_size,ref_size)(curr_input):annotate{name=reference_vector_name}
       if i>1 then -- share parameters of each reference vector
