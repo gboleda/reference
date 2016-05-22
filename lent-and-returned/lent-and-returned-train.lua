@@ -3,7 +3,7 @@
 require('nn')
 require('nngraph')
 require('optim')
-require('LinearNB') -- for linear mappings without bias
+require('../LinearNB') -- for linear mappings without bias
 
 -- making sure random is random!
 math.randomseed(os.time())
@@ -76,6 +76,34 @@ print('each epoch will contain ' .. number_of_batches .. ' mini batches')
 local left_out_training_samples_size=opt.training_set_size-(number_of_batches*opt.mini_batch_size)
 -- local used_training_samples_size=training_set_size-left_out_training_samples_size
 if (left_out_training_samples_size>0) then
-   print('since training set size is not a multiple of mini batch size, in each epoch we will exclude '
-	    .. left_out_training_samples_size .. ' random training samples')
+   print('since training set size is not a multiple of mini batch size, in each epoch we will exclude ' .. left_out_training_samples_size .. ' random training samples')
 end
+
+-- ****** loading models, data handling functions ******
+
+print('reading the models file')
+--dofile('models.lua')
+
+print('reading the data processing file')
+dofile('data.lua')
+
+-- ****** input data reading ******
+
+-- NB: This goes before initializations bc some parameters needed to
+-- intialize the models are initialized during data reading
+
+print('preparing the data')
+
+-- reading word embeddings
+word_embeddings,t_input_size=load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
+--reading image embeddings
+image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
+-- reading in the training data
+training_input_table,training_gold_index_list=
+   create_input_structures_from_file(
+      opt.protocol_prefix .. ".train",
+      opt.training_set_size,
+      t_input_size,
+      v_input_size,
+      opt.input_sequence_cardinality)
+
