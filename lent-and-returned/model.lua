@@ -38,6 +38,10 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    -- a table to store the entity matrix as it evolves through time
    local entity_matrix_table = {}
 
+   -- a table to store the cell recording the "new entity" mass
+   -- as it responds to each input token
+   local raw_new_entity_mass_table = {}
+
    -- the first object token is a special case, as it will always be
    -- directly mapped to the first row of the entity matrix
    local curr_input = nn.Identity()()
@@ -61,9 +65,14 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       ({entity_matrix_table[i-1],nn.View(1,-1):setNumInputDims(1)(object_token_vector)})
       
       -- computing the new-entity cell value
-      local raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,1)(raw_similarity_profile_to_entity_matrix)) -- I am here
-      
-
+      -- Mean or Sum??? this could be a parameter...
+      local raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
+      if i>2 then -- share parameters for new entity mass prediction
+	 raw_new_entity_mass.data.module:share(raw_new_entity_mass_table[1].data.module,'weight','bias','gradWeight','gradBias')
+      end
+      table.insert(raw_new_entity_mass_table,raw_new_entity_mass) -- probably, we could store
+                                                                  -- the first one only!
+      -- I AM HERE
    end
 
    -- wrapping up the model
