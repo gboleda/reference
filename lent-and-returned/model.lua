@@ -54,8 +54,6 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    table.insert(entity_matrix_table,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector))
 
 
-   -- debug
-   local raw_new_entity_mass = nil
    -- now we process all the other object tokens in a loop
    for i=2,inp_seq_cardinality do
       local curr_input = nn.Identity()()
@@ -66,7 +64,9 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       object_token_vector.data.module:share(first_object_token_vector.data.module,'weight','gradWeight')
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
-      local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
+      -- debug
+      raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
+      -- local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
       ({entity_matrix_table[i-1],nn.View(1,-1):setNumInputDims(1)(object_token_vector)})
       
       -- computing the new-entity cell value
@@ -76,8 +76,8 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       --local raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
       if i==2 then -- this is the first cell, let's store it as a template
 	 table.insert(raw_new_entity_mass_template_table,raw_new_entity_mass)
-	 else -- share parameters
-	    raw_new_entity_mass.data.module:share(raw_new_entity_mass_template_table[1].data.module,'weight','bias','gradWeight','gradBias')
+      else -- share parameters
+	 raw_new_entity_mass.data.module:share(raw_new_entity_mass_template_table[1].data.module,'weight','bias','gradWeight','gradBias')
       end
    end
 
