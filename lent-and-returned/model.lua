@@ -53,7 +53,6 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    -- first state of the entity matrix table
    table.insert(entity_matrix_table,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector))
 
-
    -- now we process all the other object tokens in a loop
    for i=2,inp_seq_cardinality do
       local curr_input = nn.Identity()()
@@ -65,15 +64,24 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
       -- debug
-      raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
-      -- local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
-      ({entity_matrix_table[i-1],nn.View(1,-1):setNumInputDims(1)(object_token_vector)})
+      raw_similarity_profile_to_entity_matrix = nn.View(-1,1)(nn.MM(false,false)
+							      ({entity_matrix_table[i-1],nn.View(-1,1):setNumInputDims(1)(object_token_vector)}))
+--      local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
+--      ({entity_matrix_table[i-1],nn.View(-1,1):setNumInputDims(1)(object_token_vector)})
       
       -- computing the new-entity cell value
-      -- Mean or Sum??? this could be a parameter...
       -- debug
-      raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
-      --local raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
+      -- local raw_new_entity_mass = nil
+      -- average or sum input vector cells...
+
+      -- I AM AROUND HERE, TRYING TO UNDERSTAND HOW TO MAKE Mean/Sum PERFORM
+      -- THE RIGHT OPERATION WITH BATCHES!
+
+      if (opt.new_mass_aggregation_method=='mean') then
+	 raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,1)(raw_similarity_profile_to_entity_matrix))
+      else
+	 raw_new_entity_mass = nn.Linear(1,1)(nn.Sum(1,1)(raw_similarity_profile_to_entity_matrix))
+      end
       if i==2 then -- this is the first cell, let's store it as a template
 	 table.insert(raw_new_entity_mass_template_table,raw_new_entity_mass)
       else -- share parameters

@@ -27,6 +27,7 @@ cmd:option('--save_model_to_file','', 'if a string is passed, after training has
 
 -- model parameters
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
+cmd:option('--new_mass_aggregation_method','mean','when computing the new entity mass cell, use as input mean (default) or sum of values in similarity profile')
 
 -- training parameters
 -- optimization method: sgd or adam
