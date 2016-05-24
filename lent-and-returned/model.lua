@@ -38,9 +38,11 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    -- a table to store the entity matrix as it evolves through time
    local entity_matrix_table = {}
 
-   -- a table to store the cell recording the "new entity" mass
-   -- as it responds to each input token
-   local raw_new_entity_mass_table = {}
+   -- a table to store the first cell recording the "new entity" mass
+   -- which will serve as the template for weight sharing of the other
+   -- cells (this seems like the most elegant way, in terms of
+   -- minimizing repeated call)
+   local raw_new_entity_mass_template_table = {}
 
    -- the first object token is a special case, as it will always be
    -- directly mapped to the first row of the entity matrix
@@ -51,6 +53,9 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    -- first state of the entity matrix table
    table.insert(entity_matrix_table,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector))
 
+
+   -- debug
+   local raw_new_entity_mass = nil
    -- now we process all the other object tokens in a loop
    for i=2,inp_seq_cardinality do
       local curr_input = nn.Identity()()
@@ -66,16 +71,17 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       
       -- computing the new-entity cell value
       -- Mean or Sum??? this could be a parameter...
-      local raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
-      if i>2 then -- share parameters for new entity mass prediction
-	 raw_new_entity_mass.data.module:share(raw_new_entity_mass_table[1].data.module,'weight','bias','gradWeight','gradBias')
+      -- debug
+      raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
+      --local raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,-1)(raw_similarity_profile_to_entity_matrix))
+      if i==2 then -- this is the first cell, let's store it as a template
+	 table.insert(raw_new_entity_mass_template_table,raw_new_entity_mass)
+	 else -- share parameters
+	    raw_new_entity_mass.data.module:share(raw_new_entity_mass_template_table[1].data.module,'weight','bias','gradWeight','gradBias')
       end
-      table.insert(raw_new_entity_mass_table,raw_new_entity_mass) -- probably, we could store
-                                                                  -- the first one only!
-      -- I AM HERE
    end
 
    -- wrapping up the model
-   return nn.gModule(inputs,{query,raw_similarity_profile_to_entity_matrix})
+   return nn.gModule(inputs,{query,raw_similarity_profile_to_entity_matrix,raw_new_entity_mass})
 
 end
