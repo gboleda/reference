@@ -85,15 +85,32 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
 
       -- now, we concatenate the similarity profile with this new
       -- cell, and normalize
-      -- debug: removed local!
-      -- I AM AROUND HERE: FOLLOWING PRODUCES OUTPUT OF WRONG DIMENSIONALITY
-      -- ACROSS BATCHES
-      normalized_similarity_profile = nn.SoftMax()
-      (nn.JoinTable(1)
-       ({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass}))
+
+      -- NB: the output of the following very messy line of code is a
+      -- matrix with the distributions of each item in a minibatch as
+      -- a ROW vector
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass})))
+
+      -- we now create a matrix that has, on each column, the current
+      -- token vector, multiplied by the corresponding entry on the
+      -- normalized similarity profile (including, in the final row,
+      -- the new mass cell): 
+      -- debug: make following variable local
+      nn.MM{false,false}
+object_token_vector
+
    end
 
    -- wrapping up the model
    return nn.gModule(inputs,{query,raw_similarity_profile_to_entity_matrix,raw_new_entity_mass,normalized_similarity_profile})
 
 end
+
+
+1 a b c
+2
+3
+
+1a 1b 1c
+2a 2b 3c
+3a 3b 3c
