@@ -63,33 +63,37 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       object_token_vector.data.module:share(first_object_token_vector.data.module,'weight','gradWeight')
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
-      -- debug
-      raw_similarity_profile_to_entity_matrix = nn.View(-1,1)(nn.MM(false,false)
-							      ({entity_matrix_table[i-1],nn.View(-1,1):setNumInputDims(1)(object_token_vector)}))
---      local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
---      ({entity_matrix_table[i-1],nn.View(-1,1):setNumInputDims(1)(object_token_vector)})
-      
+      -- debug: removed local!
+      raw_similarity_profile_to_entity_matrix =
+	 nn.View(-1,1):setNumInputDims(1)(nn.MM(false,false)
+	 ({entity_matrix_table[i-1],nn.View(-1,1):setNumInputDims(1)(object_token_vector)}))
+
       -- computing the new-entity cell value
-      -- debug
-      -- local raw_new_entity_mass = nil
+      -- debug: commented out following line
+      -- raw_new_entity_mass = nil
       -- average or sum input vector cells...
-
-      -- I AM AROUND HERE, TRYING TO UNDERSTAND HOW TO MAKE Mean/Sum PERFORM
-      -- THE RIGHT OPERATION WITH BATCHES!
-
       if (opt.new_mass_aggregation_method=='mean') then
-	 raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,1)(raw_similarity_profile_to_entity_matrix))
+	 raw_new_entity_mass = nn.View(1,1):setNumInputDims(1)(nn.Linear(1,1)(nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)))
       else
-	 raw_new_entity_mass = nn.Linear(1,1)(nn.Sum(1,1)(raw_similarity_profile_to_entity_matrix))
+	 raw_new_entity_mass = nn.View(1,1):setNumInputDims(1)(nn.Linear(1,1)(nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)))
       end
       if i==2 then -- this is the first cell, let's store it as a template
 	 table.insert(raw_new_entity_mass_template_table,raw_new_entity_mass)
       else -- share parameters
 	 raw_new_entity_mass.data.module:share(raw_new_entity_mass_template_table[1].data.module,'weight','bias','gradWeight','gradBias')
       end
+
+      -- now, we concatenate the similarity profile with this new
+      -- cell, and normalize
+      -- debug: removed local!
+      -- I AM AROUND HERE: FOLLOWING PRODUCES OUTPUT OF WRONG DIMENSIONALITY
+      -- ACROSS BATCHES
+      normalized_similarity_profile = nn.SoftMax()
+      (nn.JoinTable(1)
+       ({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass}))
    end
 
    -- wrapping up the model
-   return nn.gModule(inputs,{query,raw_similarity_profile_to_entity_matrix,raw_new_entity_mass})
+   return nn.gModule(inputs,{query,raw_similarity_profile_to_entity_matrix,raw_new_entity_mass,normalized_similarity_profile})
 
 end
