@@ -1,7 +1,3 @@
--- to pad with zeroes (y would be an extra row with 0s)
--- y = torch.Tensor(1,2):zero()
--- nn.JoinTable(1,2):forward({x,y})
-
 -- summing tensors
 -- nn.CAddTable():forward({nah,bah})
 
@@ -87,18 +83,31 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       -- a ROW vector
       local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass}))):annotate{'normalized_similarity_profile' .. i}
 
-      -- I am here, trying to create the following matrix, having problems with dimensionality
-
       -- we now create a matrix that has, on each COLUMN, the current
       -- token vector, multiplied by the corresponding entry on the
       -- normalized similarity profile (including, in the final column,
       -- weighting by the normalized new mass cell): 
+      -- CHANGE THIS BY MULTIPLYING TRANSPOSES OF BOTH MATRICES IN
+      -- OPPOSITE ORDER, SO RESULTING WEIGHTED VECTORS WILL BE
+      -- ON ROWS, HANDIER FOR BELOW
       -- debug: make local
       weighted_object_token_vector_matrix = nn.MM(false,false){object_token_vector,nn.View(1,-1):setNumInputDims(1)(normalized_similarity_profile)}
+
+      -- at this point we update the entity matrix by adding the
+      -- weighted versions of the current object token vector to each
+      -- row of it (we pad the bottom of the entity matrix with a zero
+      -- row, so that we can add it to the version of the current
+      -- object token vector that was weighted by the new mass cell
+      -- WORKING ON THIS, IT WOULD BE BETTER TO MAKE IT SO THAT 
+      -- WE DON'T NEED TO TRANSPOSE weighted_object_token_vector_matrix
+      -- SINCE nn.Transpose IS NOT HANDLING MINIBATCHES RIGHT
+--      entity_matrix_table[i]= nn.CAddTable(){
+--	 nn.Padding(1,1,2)(entity_matrix_table[i-1]),
+      --	 weighted_object_token_vector_matrix}
    end
 
    -- wrapping up the model
-   return nn.gModule(inputs,{query, weighted_object_token_vector_matrix})
+   return nn.gModule(inputs,{query, weighted_object_token_vector_matrix,entity_matrix_table[1],entity_matrix_table[2]})
 
 end
 
@@ -108,6 +117,12 @@ end
 
 1a 1b
 2a 2b
+
+a 1 2
+b
+
+a1 a2
+b1 b2
 
 --]]
 
