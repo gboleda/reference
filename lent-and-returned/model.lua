@@ -57,20 +57,17 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    for i=2,inp_seq_cardinality do
       local curr_input = nn.Identity()()
       table.insert(inputs,curr_input)
-      -- debug: made following global
-      object_token_vector = nn.View(-1,1):setNumInputDims(1)(nn.LinearNB(o_inp_size,mm_size)(curr_input)):annotate{'object_token_' .. i}
+      local object_token_vector = nn.View(-1,1):setNumInputDims(1)(nn.LinearNB(o_inp_size,mm_size)(curr_input)):annotate{'object_token_' .. i}
       -- parameters to be shared with first mapped vector
       object_token_vector.data.module:share(first_object_token_vector.data.module,'weight','gradWeight')
+
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
-
-      -- debug: removed local!
-      raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
+      local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
       ({entity_matrix_table[i-1],object_token_vector})
 
       -- computing the new-entity cell value
-      -- debug: commented out following line
-      -- raw_new_entity_mass = nil
+      raw_new_entity_mass = nil
       -- average or sum input vector cells...
       if (opt.new_mass_aggregation_method=='mean') then
 	 raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix))
@@ -86,38 +83,31 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       -- now, we concatenate the similarity profile with this new
       -- cell, and normalize
       -- NB: the output of the following very messy line of code is a
-      -- matrix with the distributions of each item in a minibatch as
+      -- matrix with the profile of each item in a minibatch as
       -- a ROW vector
-      -- debug: make following local
-      normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass}))):annotate{'normalized_similarity_profile' .. i}
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass}))):annotate{'normalized_similarity_profile' .. i}
 
       -- I am here, trying to create the following matrix, having problems with dimensionality
 
-      -- we now create a matrix that has, on each column, the current
+      -- we now create a matrix that has, on each COLUMN, the current
       -- token vector, multiplied by the corresponding entry on the
-      -- normalized similarity profile (including, in the final row,
-      -- the new mass cell): 
-      -- debug: remove comments
+      -- normalized similarity profile (including, in the final column,
+      -- weighting by the normalized new mass cell): 
       -- debug: make local
---      weighted_object_token_vector_matrix = nn.MM(false,false){nn.View(-1,1):setNumInputDims(1)(object_token_vector),nn.View(1,-1):setNumInputDims(1)(normalized_similarity_profile)}
-      -- debug: remove following
---      object_resized = nn.View(-1,1):setNumInputDims(1)(object_token_vector)
-
+      weighted_object_token_vector_matrix = nn.MM(false,false){object_token_vector,nn.View(1,-1):setNumInputDims(1)(normalized_similarity_profile)}
    end
 
-
    -- wrapping up the model
-   return nn.gModule(inputs,{query, object_token_vector,normalized_similarity_profile})
+   return nn.gModule(inputs,{query, weighted_object_token_vector_matrix})
 
 end
 
 --[[
-1 a b c
+1 a b
 2
-3
 
-1a 1b 1c
-2a 2b 3c
-3a 3b 3c
+1a 1b
+2a 2b
+
 --]]
 
