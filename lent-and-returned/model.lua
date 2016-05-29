@@ -26,8 +26,8 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    local query_object = nn.LinearNB(t_inp_size, mm_size)(curr_input):annotate{name='query_object'}
 
    -- putting together the multimodal query vector by summing the output of the previous
-   -- linear transformations
-   local query = nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'}
+   -- linear transformations, and ensuring it will be a column vector
+   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
 
    -- now we process the object tokens
 
@@ -81,33 +81,35 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       -- NB: the output of the following very messy line of code is a
       -- matrix with the profile of each item in a minibatch as
       -- a ROW vector
-      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass}))):annotate{'normalized_similarity_profile' .. i}
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass})))
 
-      -- we now create a matrix that has, on each COLUMN, the current
+      -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
-      -- normalized similarity profile (including, in the final column,
+      -- normalized similarity profile (including, in the final row,
       -- weighting by the normalized new mass cell): 
-      -- CHANGE THIS BY MULTIPLYING TRANSPOSES OF BOTH MATRICES IN
-      -- OPPOSITE ORDER, SO RESULTING WEIGHTED VECTORS WILL BE
-      -- ON ROWS, HANDIER FOR BELOW
       -- debug: make local
-      weighted_object_token_vector_matrix = nn.MM(false,false){object_token_vector,nn.View(1,-1):setNumInputDims(1)(normalized_similarity_profile)}
+      weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
+--      weighted_object_token_vector_matrix = nn.MM(false,false){object_token_vector,nn.View(1,-1):setNumInputDims(1)(normalized_similarity_profile)}
 
       -- at this point we update the entity matrix by adding the
       -- weighted versions of the current object token vector to each
       -- row of it (we pad the bottom of the entity matrix with a zero
       -- row, so that we can add it to the version of the current
       -- object token vector that was weighted by the new mass cell
-      -- WORKING ON THIS, IT WOULD BE BETTER TO MAKE IT SO THAT 
-      -- WE DON'T NEED TO TRANSPOSE weighted_object_token_vector_matrix
-      -- SINCE nn.Transpose IS NOT HANDLING MINIBATCHES RIGHT
---      entity_matrix_table[i]= nn.CAddTable(){
---	 nn.Padding(1,1,2)(entity_matrix_table[i-1]),
-      --	 weighted_object_token_vector_matrix}
+      entity_matrix_table[i]= nn.CAddTable(){
+	 nn.Padding(1,1,2)(entity_matrix_table[i-1]),weighted_object_token_vector_matrix}:annotate{'entity_matrix_table' .. i}
    end
 
+   -- at this point, we take the dot product of each row (entity)
+   -- vector in the entity matrix with the linguistic query vector, to
+   -- obtains an entity-to-query similarity profile, that we
+   -- LOG-softmax normalize (the log is there for compatibility with
+   -- ClassNLLCriterion)
+   local query_entity_similarity_profile = nn.LogSoftMax()(nn.View(-1):setNumInputDims(2)(nn.MM(false,false)
+											  ({entity_matrix_table[inp_seq_cardinality],query})))
+
    -- wrapping up the model
-   return nn.gModule(inputs,{query, weighted_object_token_vector_matrix,entity_matrix_table[1],entity_matrix_table[2]})
+   return nn.gModule(inputs,{query_entity_similarity_profile})
 
 end
 
