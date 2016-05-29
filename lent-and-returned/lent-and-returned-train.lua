@@ -83,7 +83,7 @@ end
 -- ****** loading models, data handling functions ******
 
 print('reading the models file')
---dofile('models.lua')
+dofile('model.lua')
 
 print('reading the data processing file')
 dofile('data.lua')
@@ -108,3 +108,47 @@ training_input_table,training_gold_index_list=
       v_input_size,
       opt.input_sequence_cardinality)
 
+-- ******* initializations *******
+
+-- optimization hyperparameters
+local optimization_parameters = {}
+if (opt.optimization_method=="sgd") then
+   -- hyperparameters for plain sgd
+   optimization_parameters = {
+      learningRate = opt.learning_rate,
+      weightDecay = opt.weight_decay,
+      momentum = opt.momentum,
+      learningRateDecay = opt.learning_rate_decay 
+   }
+else -- currently only alternative is adam
+   optimization_parameters = {
+      learningRate = opt.learning_rate,
+   }
+end
+
+
+print('assembling and initializing the model')
+
+-- setting up the criterion
+-- we use the negative log-likelihood criterion (which expects LOG probabilities
+-- as model outputs!)
+criterion=nn.ClassNLLCriterion()
+
+-- initializing the model
+model=entity_prediction(t_input_size,
+			t_input_size+v_input_size,
+			opt.multimodal_size,
+			opt.input_sequence_cardinality)
+
+-- getting pointers to the model weights and their gradient
+model_weights, model_weight_gradients = model:getParameters()
+-- initializing
+model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
+print('number of parameters in the model: ' .. model_weights:nElement())
+
+
+-- temp
+model_prediction=model:forward(training_input_table[1])
+loss = criterion:forward(model_prediction,training_gold_index_list[1])
+loss_gradient = criterion:backward(model_prediction,training_gold_index_list[1])
+model:backward(training_input_table[1],loss_gradient)

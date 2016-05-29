@@ -53,9 +53,11 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
    for i=2,inp_seq_cardinality do
       local curr_input = nn.Identity()()
       table.insert(inputs,curr_input)
-      local object_token_vector = nn.View(-1,1):setNumInputDims(1)(nn.LinearNB(o_inp_size,mm_size)(curr_input)):annotate{'object_token_' .. i}
+      local object_token_vector_flat = nn.LinearNB(o_inp_size,mm_size)(curr_input):annotate{'object_token_' .. i}
       -- parameters to be shared with first mapped vector
-      object_token_vector.data.module:share(first_object_token_vector.data.module,'weight','gradWeight')
+      object_token_vector_flat.data.module:share(first_object_token_vector.data.module,'weight','gradWeight')
+      -- reshaping
+      local object_token_vector = nn.View(-1,1):setNumInputDims(1)(object_token_vector_flat)
 
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
@@ -113,18 +115,4 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
 
 end
 
---[[
-1 a b
-2
-
-1a 1b
-2a 2b
-
-a 1 2
-b
-
-a1 a2
-b1 b2
-
---]]
 
