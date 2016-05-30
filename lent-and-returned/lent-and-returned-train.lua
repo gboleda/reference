@@ -62,6 +62,9 @@ print(opt)
 -- chunks to read files into
 BUFSIZE = 2^23 -- 1MB
 
+
+
+
 -- ****** checking command-line arguments ******
 
 -- check that batch size is smaller than training set size: if it
@@ -108,9 +111,18 @@ training_input_table,training_gold_index_list=
       v_input_size,
       opt.input_sequence_cardinality)
 
+-- reading in the validation data
+validation_input_table,validation_gold_index_list=
+   create_input_structures_from_file(
+      opt.protocol_prefix .. ".valid",
+      opt.validation_set_size,
+      t_input_size,
+      v_input_size,
+      opt.input_sequence_cardinality)
+
 -- ******* initializations *******
 
--- optimization hyperparameters
+-- initializing the optimization hyperparameters
 local optimization_parameters = {}
 if (opt.optimization_method=="sgd") then
    -- hyperparameters for plain sgd
@@ -125,7 +137,6 @@ else -- currently only alternative is adam
       learningRate = opt.learning_rate,
    }
 end
-
 
 print('assembling and initializing the model')
 
@@ -147,8 +158,150 @@ model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
 print('number of parameters in the model: ' .. model_weights:nElement())
 
 
--- temp
-model_prediction=model:forward(training_input_table[1])
-loss = criterion:forward(model_prediction,training_gold_index_list[1])
-loss_gradient = criterion:backward(model_prediction,training_gold_index_list[1])
-model:backward(training_input_table[1],loss_gradient)
+
+--model_prediction=model:forward(training_input_table)
+--loss = criterion:forward(model_prediction,training_gold_index_list)
+--loss_gradient = criterion:backward(model_prediction,training_gold_index_list)
+--model:backward(training_input_table,loss_gradient)
+
+-- ******* feval function to perform forward/backward step *******
+
+-- the closure feval computes the loss and the gradients of the
+-- loss function with respect to the weights of the model;
+-- this closure will be passed as a parameter to the optimization routine
+feval = function(x)
+   -- in case a set of weights that is different from the one we got
+   -- for the model at the last iteration of the optimization process
+   -- is passed, we update the model weights to reflect the weights
+   -- that are passed (this should not really be necessary, I'm
+   -- putting it here only because everybody else does it)
+   if x ~= model_weights then
+      model_weights:copy(x)
+   end
+   -- reset gradients
+   model_weight_gradients:zero()
+
+   -- in the following we assume there is a current_batch_indices tensor telling
+   -- us which samples are in current batch
+   local batch_input_table={}
+   for j=1,#training_input_table do
+      table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
+   end
+   batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices)
+
+   -- take forward pass for current training batch
+   local model_prediction=model:forward(batch_input_table)
+   local loss = criterion:forward(model_prediction,batch_gold_index_list)
+   -- note that according to documentation, loss is already normalized by batch size
+   -- take backward pass (note that this is implicitly updating the weight gradients)
+   local loss_gradient = criterion:backward(model_prediction,batch_gold_index_list)
+   model:backward(batch_input_table,loss_gradient)
+
+   -- clip gradients element-wise
+   model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
+   return loss,model_weight_gradients
+end
+
+
+-- ******* validation function *******
+function test(input_table,gold_index_list)
+
+   -- passing all test samples through the trained network
+   local model_prediction=model:forward(input_table)
+
+   -- compute loss
+   -- NB: according to documentation, the criterion function already normalizes loss!
+   local average_loss = criterion:forward(model_prediction,gold_index_list)
+
+   -- compute accuracy
+   -- to compute accuracy, we first retrieve list of indices of image
+   -- vectors that were preferred by the model
+   _,model_guesses_indices=torch.max(model_prediction,2)
+   -- we then count how often this guesses are the same as the gold
+   -- note conversions to long because
+   -- model_guesses_indices is long tensor
+   local hit_count=torch.sum(torch.eq(gold_index_list:long(),model_guesses_indices))
+   -- normalizing accuracy by test/valid set size
+   local accuracy=hit_count/gold_index_list:size(1)
+
+   return average_loss,accuracy
+end
+
+
+-- ****** here, the actual training and validating process starts ******
+
+print('proceeding to training and validation')
+
+-- we go through the training data for minimally min_epochs, maximally
+-- max_epochs, and we stop if there are max_validation_lull in which
+-- the validation loss does not decrease
+local epoch_counter=1
+local continue_training=1
+local previous_validation_loss=math.huge -- high loss, to make sure we are going to "improve" on first epoch
+local non_improving_epochs_count=0
+
+while (continue_training==1) do
+
+   print('now going through epoch ' .. epoch_counter)
+
+   --resetting variable to keep track of average loss
+   local current_loss = 0
+
+   -- getting a shuffled index through the training data,
+   -- so that they are processed in a different order at each epoch
+   local shuffle = torch.randperm(opt.training_set_size):long()
+   -- note that shuffle has to be LongTensor for compatibility
+   -- with the index function used below
+
+   -- we now start reading batches
+   local batch_begin_index = 1
+   while ((batch_begin_index+opt.mini_batch_size-1)<=opt.training_set_size) do
+      current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
+      local losses={}
+      if (opt.optimization_method=="sgd") then
+	 _,losses = optim.sgd(feval,model_weights,optimization_parameters)
+      else -- for now, adam is only alternative
+	 _,losses = optim.adam(feval,model_weights,optimization_parameters)
+      end
+      -- sgd and adam actually return only one loss
+      current_loss = current_loss + losses[#losses]
+      batch_begin_index=batch_begin_index+opt.mini_batch_size
+   end
+   
+   -- average loss on number of batches
+   current_loss = current_loss/number_of_batches
+
+   print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
+
+   -- validation
+   local validation_loss,validation_accuracy=test(validation_input_table,validation_gold_index_list)
+   print('validation loss: ' .. validation_loss)
+   print('validation accuracy: ' .. validation_accuracy)
+   -- if we are below or at the minumum number of required epochs, we
+   -- won't stop no matter what
+   -- if we have reached the max number of epochs, we stop no matter what
+   if (epoch_counter>=opt.max_epochs) then
+      continue_training=0
+   -- if we are in the between epoch range, we must check that the
+   -- current validation loss has not been in non-improving mode for
+      -- max_validation_lull epochs
+   elseif (epoch_counter>opt.min_epochs) then
+      if (validation_loss>=previous_validation_loss) then
+	 non_improving_epochs_count=non_improving_epochs_count+1
+	 if (non_improving_epochs_count>=opt.max_validation_lull) then
+	    continue_training=0
+	 end
+      else 
+	 non_improving_epochs_count=0
+      end
+   end
+   previous_validation_loss=validation_loss
+   epoch_counter=epoch_counter+1
+end
+
+-- trainign is over, if we were asked to save the model to a file, now it's the
+-- time to do it
+if (opt.save_model_to_file ~= '') then
+   print('saving model to file ' .. opt.save_model_to_file)
+   torch.save(opt.save_model_to_file,model)
+end

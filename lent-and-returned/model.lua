@@ -89,8 +89,7 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
       -- token vector, multiplied by the corresponding entry on the
       -- normalized similarity profile (including, in the final row,
       -- weighting by the normalized new mass cell): 
-      -- debug: make local
-      weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
+      local weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
 --      weighted_object_token_vector_matrix = nn.MM(false,false){object_token_vector,nn.View(1,-1):setNumInputDims(1)(normalized_similarity_profile)}
 
       -- at this point we update the entity matrix by adding the
