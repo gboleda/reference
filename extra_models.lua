@@ -364,3 +364,4 @@ function ff_reference(t_inp_size,v_inp_size,img_set_size,ref_size)
    -- wrapping up, here is our model...
    return nn.gModule(inputs,{relevance_distribution})
 end
+
