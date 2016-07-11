@@ -71,9 +71,9 @@ local model_guesses_probs,model_guesses_indices=torch.max(model_predictions,2)
 -- we then count how often these guesses are the same as the gold
 -- (and thus the difference is 0) (note conversions to long because
 -- model_guesses_indices is long tensor)
-local hit_count=torch.sum(torch.eq(gold_indices:long(),model_guesses_indices))
+local hit_count=torch.sum(torch.eq(gold_index_list:long(),model_guesses_indices))
 -- normalizing accuracy by test set size
-local accuracy=hit_count/test_set_size
+local accuracy=hit_count/opt.test_set_size
 
 print('test set accuracy is ' .. accuracy)
 
