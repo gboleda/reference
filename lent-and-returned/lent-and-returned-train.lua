@@ -33,6 +33,7 @@ cmd:option('--new_mass_aggregation_method','mean','when computing the new entity
 ---- ff parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
+cmd:option('--ff_nonlinearity','none','nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh)')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -157,7 +158,8 @@ if  (opt.model=='ff') then
 	    t_input_size+v_input_size,
 	    opt.hidden_size,
 	    opt.input_sequence_cardinality,
-	    opt.hidden_count)
+	    opt.hidden_count,
+	    opt.ff_nonlinearity)
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
 			   t_input_size+v_input_size,

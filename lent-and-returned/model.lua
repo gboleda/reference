@@ -115,9 +115,10 @@ end
 
 -- a control feed forward network from the concatenation of
 -- inputs to a softmax over the output
-function ff(t_inp_size,o_inp_size,h_size,inp_seq_cardinality,h_layer_count)
+function ff(t_inp_size,o_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonlinearity)
 
    local inputs = {}
+   local hidden_layers = {}
 
    -- we concatenate all inputs (query and candidates), mapping them all to the hidden layer
 
@@ -149,12 +150,38 @@ function ff(t_inp_size,o_inp_size,h_size,inp_seq_cardinality,h_layer_count)
       first_hidden_layer = nn.CAddTable()({first_hidden_layer,object_token})
    end
 
-   -- now we pass through any other hidden layers, if more than one was requested
-   local hidden_layers = {}
-   table.insert(hidden_layers,first_hidden_layer)
+   if (nonlinearity == 'none') then
+      table.insert(hidden_layers,first_hidden_layer)
+   else
+      local nonlinear_first_hidden_layer = nil
+      -- if requested, passing the hidden layer through a nonlinear
+      -- transform: relu, tanh sigmoid
+      if (nonlinearity == 'relu') then
+	 nonlinear_first_hidden_layer = nn.ReLU()(first_hidden_layer)
+      elseif (nonlinearity == 'tanh') then
+	 nonlinear_first_hidden_layer = nn.Tanh()(first_hidden_layer)
+      else -- sigmoid is leftover option  (nonlinearity == 'sigmoid') then
+	 nonlinear_first_hidden_layer = nn.Sigmoid()(first_hidden_layer)
+      end
+      table.insert(hidden_layers,nonlinear_first_hidden_layer)
+   end
+
+   -- go through further layers if so instructed
    for i=2,h_layer_count do
-      hidden_layer = nn.Linear(h_size,h_size)(hidden_layers[i-1])
-      table.insert(hidden_layers,hidden_layer)
+      local hidden_layer = nn.Linear(h_size,h_size)(hidden_layers[i-1])
+      if (nonlinearity=='none') then
+	 table.insert(hidden_layers,hidden_layer)
+      else
+	 local nonlinear_hidden_layer = nil
+	 if (nonlinearity == 'relu') then
+	    nonlinear_hidden_layer = nn.ReLU()(hidden_layer)
+	 elseif (nonlinearity == 'tanh') then
+	    nonlinear_hidden_layer = nn.Tanh()(hidden_layer)
+	 else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
+	    nonlinear_hidden_layer = nn.Sigmoid()(hidden_layer)
+	 end
+	 table.insert(hidden_layers,nonlinear_hidden_layer)
+      end
    end
 
    -- now we predict from the last hidden layer via a linear projection to
