@@ -26,8 +26,13 @@ cmd:option('--validation_set_size',0, 'validation set size')
 cmd:option('--save_model_to_file','', 'if a string is passed, after training has finished, the trained model is saved as binary file named like the string')
 
 -- model parameters
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff)')
+---- entity_prediction parameters
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--new_mass_aggregation_method','mean','when computing the new entity mass cell, use as input mean (default) or sum of values in similarity profile')
+---- ff parameters
+cmd:option('--hidden_size',300, 'size of hidden layer')
+cmd:option('--hidden_count',1,'number of hidden layers')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -146,10 +151,19 @@ print('assembling and initializing the model')
 criterion=nn.ClassNLLCriterion()
 
 -- initializing the model
-model=entity_prediction(t_input_size,
-			t_input_size+v_input_size,
-			opt.multimodal_size,
-			opt.input_sequence_cardinality)
+
+if  (opt.model=='ff') then
+   model=ff(t_input_size,
+	    t_input_size+v_input_size,
+	    opt.hidden_size,
+	    opt.input_sequence_cardinality,
+	    opt.hidden_count)
+else -- default is entity prediction
+   model=entity_prediction(t_input_size,
+			   t_input_size+v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
+end
 
 -- getting pointers to the model weights and their gradient
 model_weights, model_weight_gradients = model:getParameters()
