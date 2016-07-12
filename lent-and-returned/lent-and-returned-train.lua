@@ -14,7 +14,7 @@ math.randomseed(os.time())
 cmd = torch.CmdLine()
 
 -- options concerning input processing 
-cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid) to be in the folder where program is called. Format: one trial per line: first field linguistic query, second field index of the first occurrence of query in the object token sequence (see next), rest of the fields are token sequence (query format: att1:att2:object; object token format: att:object)')
+cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid) to be in the folder where program is called. Format: one trial per line: first field linguistic query, second field index of the first occurrence of query in the object token sequence (see next), rest of the fields are token sequence (query format: object:att1:att2; object token format: att:object)')
 cmd:option('--word_embedding_file','','word embedding file (with word vectors; first field word, rest of the fields vector values)')
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
@@ -157,12 +157,6 @@ model_weights, model_weight_gradients = model:getParameters()
 model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
 print('number of parameters in the model: ' .. model_weights:nElement())
 
-
-
---model_prediction=model:forward(training_input_table)
---loss = criterion:forward(model_prediction,training_gold_index_list)
---loss_gradient = criterion:backward(model_prediction,training_gold_index_list)
---model:backward(training_input_table,loss_gradient)
 
 -- ******* feval function to perform forward/backward step *******
 

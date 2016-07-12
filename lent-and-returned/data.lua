@@ -74,7 +74,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 
    -- now we traverse the trial file, expected to be in format:
    --
-   -- query_att1:query_att2:query_object gold_index seq_att1:seq_obj1
+   -- query_object:query_att1:query_att2 gold_index seq_att1:seq_obj1
    -- ... seq_attM:seq:objM
    -- where M is input_sequence_cardinality
    local f = io.input(i_file)
@@ -91,9 +91,9 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	 -- query will contain att1, att2, object, lets retrieve their
 	 -- word embeddings
 	 local query=current_data[1]:split(":")
-	 query_att1_list[i]=word_embeddings[query[1]]
-	 query_att2_list[i]=word_embeddings[query[2]]
-	 query_object_list[i]=word_embeddings[query[3]]
+	 query_object_list[i]=word_embeddings[query[1]]
+	 query_att1_list[i]=word_embeddings[query[2]]
+	 query_att2_list[i]=word_embeddings[query[3]]
 
 	 -- append gold index to corresponding list
 	 gold_index_list[i]=current_data[2]
