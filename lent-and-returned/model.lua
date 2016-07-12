@@ -1,6 +1,4 @@
--- summing tensors
--- nn.CAddTable():forward({nah,bah})
-
+-- our main model
 function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
 
    local inputs = {}
@@ -111,6 +109,61 @@ function entity_prediction(t_inp_size,o_inp_size,mm_size,inp_seq_cardinality)
 
    -- wrapping up the model
    return nn.gModule(inputs,{query_entity_similarity_profile})
+
+end
+
+
+-- a control feed forward network from the concatenation of
+-- inputs to a softmax over the output
+function ff(t_inp_size,o_inp_size,h_size,inp_seq_cardinality,h_layer_count)
+
+   local inputs = {}
+
+   -- we concatenate all inputs (query and candidates), mapping them all to the hidden layer
+
+   -- the first attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_attribute_1 = nn.LinearNB(t_inp_size, h_size)(curr_input)
+
+   -- the second attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_attribute_2 = nn.LinearNB(t_inp_size, h_size)(curr_input)
+   
+   -- the object name in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_object = nn.LinearNB(t_inp_size, h_size)(curr_input)
+
+   -- merging the mapped input vectors into a single hidden layer
+   local first_hidden_layer = nn.CAddTable()({query_attribute_1,query_attribute_2,query_object})
+
+   -- now we process the candidate (object tokens), mapping them and
+   -- adding them to the hidden layer
+   for i=1,inp_seq_cardinality do
+      local curr_input = nn.Identity()()
+      table.insert(inputs,curr_input)
+      local object_token = nn.LinearNB(o_inp_size,h_size)(curr_input)
+      -- adding to the hidden layer
+      first_hidden_layer = nn.CAddTable()({first_hidden_layer,object_token})
+   end
+
+   -- now we pass through any other hidden layers, if more than one was requested
+   local hidden_layers = {}
+   table.insert(hidden_layers,first_hidden_layer)
+   for i=2,h_layer_count do
+      hidden_layer = nn.Linear(h_size,h_size)(hidden_layers[i-1])
+      table.insert(hidden_layers,hidden_layer)
+   end
+
+   -- now we predict from the last hidden layer via a linear projection to
+   -- the number of output slots passed through the log softmax (for
+   -- compatibility with the ClassNLL criterion)
+   local output_distribution = nn.LogSoftMax()(nn.Linear(h_size,inp_seq_cardinality)(hidden_layers[h_layer_count]))
+
+   -- wrapping up the model
+   return nn.gModule(inputs,{output_distribution})
 
 end
 
