@@ -155,14 +155,14 @@ criterion=nn.ClassNLLCriterion()
 
 if  (opt.model=='ff') then
    model=ff(t_input_size,
-	    t_input_size+v_input_size,
+	    v_input_size,
 	    opt.hidden_size,
 	    opt.input_sequence_cardinality,
 	    opt.hidden_count,
 	    opt.ff_nonlinearity)
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
-			   t_input_size+v_input_size,
+			   v_input_size,
 			   opt.multimodal_size,
 			   opt.input_sequence_cardinality)
 end
