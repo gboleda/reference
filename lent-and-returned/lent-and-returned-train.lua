@@ -26,7 +26,7 @@ cmd:option('--validation_set_size',0, 'validation set size')
 cmd:option('--save_model_to_file','', 'if a string is passed, after training has finished, the trained model is saved as binary file named like the string')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff)')
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, entity_prediction_query_token_mappings)')
 ---- entity_prediction parameters
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--new_mass_aggregation_method','mean','when computing the new entity mass cell, use as input mean (default) or sum of values in similarity profile')
@@ -153,13 +153,18 @@ criterion=nn.ClassNLLCriterion()
 
 -- initializing the model
 
-if  (opt.model=='ff') then
+if (opt.model=='ff') then
    model=ff(t_input_size,
 	    v_input_size,
 	    opt.hidden_size,
 	    opt.input_sequence_cardinality,
 	    opt.hidden_count,
 	    opt.ff_nonlinearity)
+elseif (opt.model=='entity_prediction_query_token_mappings') then
+   model=entity_prediction_query_token_mappings(t_input_size,
+			   v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
 			   v_input_size,
