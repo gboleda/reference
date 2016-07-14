@@ -170,6 +170,11 @@ elseif (opt.model=='entity_prediction_buggy') then
 			   v_input_size,
 			   opt.multimodal_size,
 			   opt.input_sequence_cardinality)
+elseif (opt.model=='entity_prediction_old_wrong_sharing') then
+   model=entity_prediction_old_wrong_sharing(t_input_size,
+			   t_input_size+v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
 else -- default is entity prediction
    model=entity_prediction_separate_mappings(t_input_size,
 			   t_input_size+v_input_size,
