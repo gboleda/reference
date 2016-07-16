@@ -524,7 +524,6 @@ function entity_prediction_no_share(t_inp_size,v_inp_size,mm_size,inp_seq_cardin
 
 end
 
---- PASTED TO HERE 3
 
 -- a control feed forward network from the concatenation of
 -- inputs to a softmax over the output
