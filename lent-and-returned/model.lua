@@ -657,9 +657,82 @@ end
 -- inputs to a softmax over the output
 function ff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonlinearity)
 
+   -- gbt: wouldn't it make sense to share weights for all the language-handling matrices and all the image-handling matrices?
    local inputs = {}
    local hidden_layers = {}
+   
+   -- the first attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   -- the second attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   -- the object name in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
 
+   -- now we process the candidate (object tokens)
+   for i=1,inp_seq_cardinality do
+      -- first an attribute
+      local curr_input = nn.Identity()()
+      table.insert(inputs,curr_input)
+      -- then an object image
+      local curr_input = nn.Identity()()
+      table.insert(inputs,curr_input)
+   end
+
+   all_input=nn.JoinTable(1)(inputs) -- second argument to JoinTable is for batch mode
+   local InDim=t_inp_size*3+t_inp_size*inp_seq_cardinality*2
+   local first_hidden_layer = nn.LinearNB(InDim, h_size*3)(all_input)
+
+   if (nonlinearity == 'none') then
+      table.insert(hidden_layers,first_hidden_layer)
+   else
+      local nonlinear_first_hidden_layer = nil
+      -- if requested, passing the hidden layer through a nonlinear
+      -- transform: relu, tanh sigmoid
+      if (nonlinearity == 'relu') then
+	 nonlinear_first_hidden_layer = nn.ReLU()(first_hidden_layer)
+      elseif (nonlinearity == 'tanh') then
+	 nonlinear_first_hidden_layer = nn.Tanh()(first_hidden_layer)
+      else -- sigmoid is leftover option  (nonlinearity == 'sigmoid') then
+	 nonlinear_first_hidden_layer = nn.Sigmoid()(first_hidden_layer)
+      end
+      table.insert(hidden_layers,nonlinear_first_hidden_layer)
+   end
+
+   -- go through further layers if so instructed
+   for i=2,h_layer_count do
+      local hidden_layer = nn.Linear(h_size,h_size)(hidden_layers[i-1])
+      if (nonlinearity=='none') then
+	 table.insert(hidden_layers,hidden_layer)
+      else
+	 local nonlinear_hidden_layer = nil
+	 if (nonlinearity == 'relu') then
+	    nonlinear_hidden_layer = nn.ReLU()(hidden_layer)
+	 elseif (nonlinearity == 'tanh') then
+	    nonlinear_hidden_layer = nn.Tanh()(hidden_layer)
+	 else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
+	    nonlinear_hidden_layer = nn.Sigmoid()(hidden_layer)
+	 end
+	 table.insert(hidden_layers,nonlinear_hidden_layer)
+      end
+   end
+
+   -- now we predict from the last hidden layer via a linear projection to
+   -- the number of output slots passed through the log softmax (for
+   -- compatibility with the ClassNLL criterion)
+   local output_distribution = nn.LogSoftMax()(nn.Linear(h_size,inp_seq_cardinality)(hidden_layers[h_layer_count]))
+
+   -- wrapping up the model
+   return nn.gModule(inputs,{output_distribution})
+
+end
+
+function OLDff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonlinearity)
+
+   local inputs = {}
+   local hidden_layers = {}
    -- we concatenate all inputs (query and candidates), mapping them all to the hidden layer
 
    -- the first attribute in the query
@@ -678,6 +751,7 @@ function ff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonli
    local query_object = nn.LinearNB(t_inp_size, h_size)(curr_input)
 
    -- merging the mapped input vectors into a single hidden layer
+   -- gbt: why are you summing them?
    local first_hidden_layer = nn.CAddTable()({query_attribute_1,query_attribute_2,query_object})
 
    -- now we process the candidate (object tokens), mapping them and
