@@ -160,6 +160,23 @@ if (opt.model=='ff') then
 	    opt.input_sequence_cardinality,
 	    opt.hidden_count,
 	    opt.ff_nonlinearity)
+elseif (opt.model=='entity_prediction_share_att1_att2_object')
+   model=entity_prediction_share_att1_att2_object(t_input_size,
+			   v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
+-- debug from here
+elseif (opt.model=='entity_prediction_share_att1_object')
+   model=entity_prediction_share_att1_object(t_input_size,
+			   v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
+elseif (opt.model=='entity_prediction_no_share')
+   model=entity_prediction_no_share(t_input_size,
+			   v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
+-- debug to here
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
 			   v_input_size,
