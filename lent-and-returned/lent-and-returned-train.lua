@@ -176,6 +176,11 @@ elseif (opt.model=='entity_prediction_no_share') then
 			   v_input_size,
 			   opt.multimodal_size,
 			   opt.input_sequence_cardinality)
+elseif (opt.model=='entity_prediction_share_query_tokens') then
+   model=entity_prediction_share_query_tokens(t_input_size,
+			   v_input_size,
+			   opt.multimodal_size,
+			   opt.input_sequence_cardinality)
 -- debug to here
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
