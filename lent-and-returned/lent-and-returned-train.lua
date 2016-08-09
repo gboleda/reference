@@ -34,6 +34,7 @@ cmd:option('--new_mass_aggregation_method','mean','when computing the new entity
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
 cmd:option('--ff_nonlinearity','none','nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh)')
+cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -159,7 +160,8 @@ if (opt.model=='ff') then
 	    opt.hidden_size,
 	    opt.input_sequence_cardinality,
 	    opt.hidden_count,
-	    opt.ff_nonlinearity)
+	    opt.ff_nonlinearity,
+	    opt.dropout_prob)
 elseif (opt.model=='entity_prediction_share_att1_att2_object') then
    model=entity_prediction_share_att1_att2_object(t_input_size,
 			   v_input_size,

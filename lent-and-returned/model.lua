@@ -664,9 +664,8 @@ end
 
 -- a control feed forward network from the concatenation of
 -- inputs to a softmax over the output
-function ff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonlinearity)
-
-   -- gbt: wouldn't it make sense to share weights for all the language-handling matrices and all the image-handling matrices?
+function ff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonlinearity,dropout_p)
+   
    local inputs = {}
    local hidden_layers = {}
    
@@ -679,8 +678,8 @@ function ff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonli
    -- the object name in the query
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
-
-   -- now we process the candidate (object tokens)
+   
+   -- now we process the candidates (object tokens)
    for i=1,inp_seq_cardinality do
       -- first an attribute
       local curr_input = nn.Identity()()
@@ -690,29 +689,20 @@ function ff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonli
       table.insert(inputs,curr_input)
    end
 
-   all_input=nn.JoinTable(1)(inputs) -- second argument to JoinTable is for batch mode
-   local InDim=t_inp_size*3+t_inp_size*inp_seq_cardinality*2
-   local first_hidden_layer = nn.LinearNB(InDim, h_size*3)(all_input)
-
-   if (nonlinearity == 'none') then
-      table.insert(hidden_layers,first_hidden_layer)
-   else
-      local nonlinear_first_hidden_layer = nil
-      -- if requested, passing the hidden layer through a nonlinear
-      -- transform: relu, tanh sigmoid
-      if (nonlinearity == 'relu') then
-	 nonlinear_first_hidden_layer = nn.ReLU()(first_hidden_layer)
-      elseif (nonlinearity == 'tanh') then
-	 nonlinear_first_hidden_layer = nn.Tanh()(first_hidden_layer)
-      else -- sigmoid is leftover option  (nonlinearity == 'sigmoid') then
-	 nonlinear_first_hidden_layer = nn.Sigmoid()(first_hidden_layer)
+   local all_input=nn.JoinTable(2,2)(inputs) -- second argument to JoinTable is for batch mode
+   local InDim=t_inp_size*3+(t_inp_size+v_inp_size)*inp_seq_cardinality
+   -- all_input=Peek()(all_input_for_peek)
+--   print('--------------------indim: ' .. tostring(InDim))
+   --   local first_hidden_layer_do = nn.Dropout(dropout_p)(all_input)
+   local first_hidden_layer = nn.Linear(InDim, h_size)(all_input)
+   
+   -- gbt: todo: add check at option reading time that required nonlin is one of none, relu, tanh, sigmoid
+   -- go through all layers
+   local hidden_layer = first_hidden_layer
+   for i=1,h_layer_count do
+      if i>1 then
+	 hidden_layer = nn.Linear(h_size,h_size)(hidden_layers[i-1])
       end
-      table.insert(hidden_layers,nonlinear_first_hidden_layer)
-   end
-
-   -- go through further layers if so instructed
-   for i=2,h_layer_count do
-      local hidden_layer = nn.Linear(h_size,h_size)(hidden_layers[i-1])
       if (nonlinearity=='none') then
 	 table.insert(hidden_layers,hidden_layer)
       else

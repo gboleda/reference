@@ -2,21 +2,21 @@ date
 
 # BINDING
 
-# # BEGIN TINY DATA
-# datadir='/Users/gboleda/Desktop/love-project/data/binding/exp-tiny'
-# trsetsize=200
-# vsetsize=50
-# tesetsize=100
-# prefixoutput=binding-exp-tiny
-# # END TINY DATA
+# BEGIN TINY DATA
+datadir='/Users/gboleda/Desktop/love-project/data/binding/exp-tiny'
+trsetsize=200
+vsetsize=50
+tesetsize=100
+prefixoutput=binding-exp-tiny
+# END TINY DATA
 
-# BEGIN LARGE DATA
-datadir='/Users/gboleda/Desktop/love-project/data/binding/exp1-large'
-trsetsize=4000
-vsetsize=5000
-tesetsize=10000
-prefixoutput=binding-exp1-large
-# END LARGE DATA
+# # BEGIN LARGE DATA
+# datadir='/Users/gboleda/Desktop/love-project/data/binding/exp1-large'
+# trsetsize=40000
+# vsetsize=5000
+# tesetsize=10000
+# prefixoutput=binding-exp1-large
+# # END LARGE DATA
 
 # MODEL PARAMETERS
 prefixfortraining=stimuli
