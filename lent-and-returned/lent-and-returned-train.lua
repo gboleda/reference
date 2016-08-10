@@ -4,6 +4,7 @@ require('nn')
 require('nngraph')
 require('optim')
 require('../LinearNB') -- for linear mappings without bias
+require('../Peek') 
 
 -- making sure random is random!
 math.randomseed(os.time())
@@ -162,33 +163,12 @@ if (opt.model=='ff') then
 	    opt.hidden_count,
 	    opt.ff_nonlinearity,
 	    opt.dropout_prob)
-elseif (opt.model=='entity_prediction_share_att1_att2_object') then
-   model=entity_prediction_share_att1_att2_object(t_input_size,
-			   v_input_size,
-			   opt.multimodal_size,
-			   opt.input_sequence_cardinality)
--- debug from here
-elseif (opt.model=='entity_prediction_share_att1_object') then
-   model=entity_prediction_share_att1_object(t_input_size,
-			   v_input_size,
-			   opt.multimodal_size,
-			   opt.input_sequence_cardinality)
-elseif (opt.model=='entity_prediction_no_share') then
-   model=entity_prediction_no_share(t_input_size,
-			   v_input_size,
-			   opt.multimodal_size,
-			   opt.input_sequence_cardinality)
-elseif (opt.model=='entity_prediction_share_query_tokens') then
-   model=entity_prediction_share_query_tokens(t_input_size,
-			   v_input_size,
-			   opt.multimodal_size,
-			   opt.input_sequence_cardinality)
--- debug to here
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
 			   v_input_size,
 			   opt.multimodal_size,
-			   opt.input_sequence_cardinality)
+			   opt.input_sequence_cardinality,
+			   opt.dropout_prob)
 end
 
 -- getting pointers to the model weights and their gradient
@@ -204,6 +184,7 @@ print('number of parameters in the model: ' .. model_weights:nElement())
 -- loss function with respect to the weights of the model;
 -- this closure will be passed as a parameter to the optimization routine
 feval = function(x)
+
    -- in case a set of weights that is different from the one we got
    -- for the model at the last iteration of the optimization process
    -- is passed, we update the model weights to reflect the weights
@@ -286,6 +267,7 @@ while (continue_training==1) do
    local shuffle = torch.randperm(opt.training_set_size):long()
    -- note that shuffle has to be LongTensor for compatibility
    -- with the index function used below
+   model:training() -- for dropout; make sure we are in training mode
 
    -- we now start reading batches
    local batch_begin_index = 1
@@ -308,6 +290,7 @@ while (continue_training==1) do
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
    -- validation
+   model:evaluate() -- for dropout; get into evaluation mode (all weights used)
    local validation_loss,validation_accuracy=test(validation_input_table,validation_gold_index_list)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)

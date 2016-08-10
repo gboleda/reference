@@ -56,6 +56,7 @@ input_table,gold_index_list=
       v_input_size,
       opt.input_sequence_cardinality)
 
+
 -- ****** model reading ******
 
 print('reading in the model from file ' .. opt.model_file)
