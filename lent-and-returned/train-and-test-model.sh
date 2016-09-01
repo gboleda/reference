@@ -25,9 +25,9 @@ model=entity_prediction
 mini_batch_size=1 # consider 10, 20, 100 future
 lr_decay=0.0001 # values for future: 0.001 0.0001
 momentum=0.09 # values for future: 0.0, 0.09*, 0.3, 0.6, 0.9
-learning_rate=0.09
+learning_rate=0.09 #
 input_sequence_cardinality=6
-hidden_count=3 # number of hidden layers [1]
+hidden_count=2 # number of hidden layers [1]
 ff_nonlinearity=none # nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh) [none]
 dropout_p=0.5
 

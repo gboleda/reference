@@ -20,6 +20,7 @@ cmd:option('--word_embedding_file','','word embedding file (with word vectors; f
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
 cmd:option('--input_sequence_cardinality', 0, 'number of object tokens in a sequence')
+cmd:option('--candidate_cardinality', 0, 'number of images in the output set to pick from')
 cmd:option('--training_set_size',0, 'training set size')
 cmd:option('--validation_set_size',0, 'validation set size')
 
@@ -28,14 +29,14 @@ cmd:option('--save_model_to_file','', 'if a string is passed, after training has
 
 -- model parameters
 cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff)')
----- entity_prediction parameters
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
+cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
+---- entity_prediction parameters
 cmd:option('--new_mass_aggregation_method','mean','when computing the new entity mass cell, use as input mean (default) or sum of values in similarity profile')
 ---- ff parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
 cmd:option('--ff_nonlinearity','none','nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh)')
-cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -94,10 +95,12 @@ end
 -- ****** loading models, data handling functions ******
 
 print('reading the models file')
-dofile('model.lua')
+--dofile('model.lua')
+dofile('model-new.lua')
 
 print('reading the data processing file')
-dofile('data.lua')
+--dofile('data.lua')
+dofile('data-new.lua')
 
 -- ****** input data reading ******
 
@@ -117,7 +120,8 @@ training_input_table,training_gold_index_list=
       opt.training_set_size,
       t_input_size,
       v_input_size,
-      opt.input_sequence_cardinality)
+      opt.input_sequence_cardinality,
+      opt.candidate_cardinality)
 
 -- reading in the validation data
 validation_input_table,validation_gold_index_list=
@@ -126,7 +130,9 @@ validation_input_table,validation_gold_index_list=
       opt.validation_set_size,
       t_input_size,
       v_input_size,
-      opt.input_sequence_cardinality)
+      opt.input_sequence_cardinality,
+      opt.candidate_cardinality)
+
 
 -- ******* initializations *******
 
@@ -158,8 +164,10 @@ criterion=nn.ClassNLLCriterion()
 if (opt.model=='ff') then
    model=ff(t_input_size,
 	    v_input_size,
+	    opt.multimodal_size,
 	    opt.hidden_size,
 	    opt.input_sequence_cardinality,
+	    opt.candidate_cardinality,
 	    opt.hidden_count,
 	    opt.ff_nonlinearity,
 	    opt.dropout_prob)
