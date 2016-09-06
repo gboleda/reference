@@ -14,6 +14,9 @@ math.randomseed(os.time())
 
 cmd = torch.CmdLine()
 
+-- run on GPU? no by default
+cmd:option('cmd:option('--use_cuda',0,'is a GPU available? default: nope, specify value different from 0 to use GPU')
+
 -- options concerning input processing 
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid) to be in the folder where program is called. Format: one trial per line: first field linguistic query, second field index of the first occurrence of query in the object token sequence (see next), rest of the fields are token sequence (query format: object:att1:att2; object token format: att:object)')
 cmd:option('--word_embedding_file','','word embedding file (with word vectors; first field word, rest of the fields vector values)')
@@ -71,6 +74,9 @@ print(opt)
 -- chunks to read files into
 BUFSIZE = 2^23 -- 1MB
 
+if (opt.use_cuda ~= 0) then
+   require 'cunn'
+end
 
 
 
@@ -133,6 +139,16 @@ validation_input_table,validation_gold_index_list=
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
 
+if (opt.use_cuda ~=0) then
+   for i=1,#validation_input_table do
+      validation_input_table[i]=validation_input_table[i]:cuda()
+   end
+   validation_gold_index_list=validation_gold_index_list:cuda()
+end
+
+-- we no longer need the embeddings, let's get rid of them
+word_embeddings=nil
+image_embeddings=nil
 
 -- ******* initializations *******
 
@@ -157,9 +173,14 @@ print('assembling and initializing the model')
 -- setting up the criterion
 -- we use the negative log-likelihood criterion (which expects LOG probabilities
 -- as model outputs!)
-criterion=nn.ClassNLLCriterion()
+local criterion=nn.ClassNLLCriterion()
+if (opt.use_cuda ~= 0) then
+   criterion:cuda()
+end
 
 -- initializing the model
+-- NB: gpu processing should be done within the model building
+-- functions, to make sure weight sharing is handled correctly!
 
 if (opt.model=='ff') then
    model=ff(t_input_size,
@@ -170,13 +191,15 @@ if (opt.model=='ff') then
 	    opt.candidate_cardinality,
 	    opt.hidden_count,
 	    opt.ff_nonlinearity,
-	    opt.dropout_prob)
+	    opt.dropout_prob,
+	    opt.use_cuda)
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
 			   v_input_size,
 			   opt.multimodal_size,
 			   opt.input_sequence_cardinality,
-			   opt.dropout_prob)
+			   opt.dropout_prob,
+			   opt.use_cuda)
 end
 
 -- getting pointers to the model weights and their gradient
@@ -207,10 +230,19 @@ feval = function(x)
    -- in the following we assume there is a current_batch_indices tensor telling
    -- us which samples are in current batch
    local batch_input_table={}
+   local batch_gold_index_list = nil
    for j=1,#training_input_table do
-      table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
+      if (opt.use_cuda ~= 0) then
+	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices):cuda())
+      else
+	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
+      end
    end
-   batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices)
+   if (opt.use_cuda ~= 0) then
+      batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices):cuda
+   else
+      batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices)
+   end
 
    -- take forward pass for current training batch
    local model_prediction=model:forward(batch_input_table)
@@ -239,11 +271,16 @@ function test(input_table,gold_index_list)
    -- compute accuracy
    -- to compute accuracy, we first retrieve list of indices of image
    -- vectors that were preferred by the model
-   _,model_guesses_indices=torch.max(model_prediction,2)
+   local _,model_guesses_indices=torch.max(model_prediction,2)
    -- we then count how often this guesses are the same as the gold
-   -- note conversions to long because
-   -- model_guesses_indices is long tensor
-   local hit_count=torch.sum(torch.eq(gold_index_list:long(),model_guesses_indices))
+   -- note conversions to long if we're not using cuda as only tensor
+   -- type
+   local hit_count=0
+   if (opt.use_cuda~=0) then
+      hit_count=torch.sum(torch.eq(gold_index_list,model_guesses_indices))
+   else
+      hit_count=torch.sum(torch.eq(gold_index_list:long(),model_guesses_indices))
+   end
    -- normalizing accuracy by test/valid set size
    local accuracy=hit_count/gold_index_list:size(1)
 
@@ -324,7 +361,7 @@ while (continue_training==1) do
    epoch_counter=epoch_counter+1
 end
 
--- trainign is over, if we were asked to save the model to a file, now it's the
+-- training is over, if we were asked to save the model to a file, now it's the
 -- time to do it
 if (opt.save_model_to_file ~= '') then
    print('saving model to file ' .. opt.save_model_to_file)

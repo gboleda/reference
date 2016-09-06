@@ -33,7 +33,7 @@ function return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,
 end
 
 -- our main model
-function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p)
+function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,use_cuda)
 
    local inputs = {}
 
@@ -172,7 +172,7 @@ end
 
 -- a control feed forward network from the concatenation of
 -- inputs to a softmax over the output
-function ff(t_inp_size,v_inp_size,mm_size,h_size,inp_seq_cardinality,candidate_cardinality,h_layer_count,nonlinearity,dropout_p)
+function ff(t_inp_size,v_inp_size,mm_size,h_size,inp_seq_cardinality,candidate_cardinality,h_layer_count,nonlinearity,dropout_p,use_cuda)
    
    local inputs = {}
    local hidden_layers = {}
