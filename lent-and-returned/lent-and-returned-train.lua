@@ -277,10 +277,7 @@ function test(input_table,gold_index_list)
    -- type
    local hit_count=0
    if (opt.use_cuda~=0) then
-      --debug
-      print(gold_index_list:type())
-      print(model_guesses_indices:type())
-      hit_count=torch.sum(torch.eq(gold_index_list,model_guesses_indices))
+      hit_count=torch.sum(torch.eq(gold_index_list:type('torch.CudaLongTensor'),model_guesses_indices))
    else
       hit_count=torch.sum(torch.eq(gold_index_list:long(),model_guesses_indices))
    end
