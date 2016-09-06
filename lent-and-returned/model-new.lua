@@ -32,6 +32,48 @@ function return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,
    return nn.LogSoftMax()(dot_vector)
 end
 
+function return_entity_image_in_progress(v_inp_size,mm_size,candidate_cardinality,dropout_p,in_table,retrieved_entity_matrix)
+   local image_candidate_vectors={}
+   -- image candidates vectors
+   for i=1,candidate_cardinality do
+      local curr_input = nn.Identity()()
+      table.insert(in_table,curr_input)
+      local image_candidate_vector_do = nn.Dropout(dropout_p)(curr_input)
+      local image_candidate_vector = nn.LinearNB(v_inp_size,mm_size)(image_candidate_vector_do)
+      -- FOLLOWING IS NOW DEPRECATED, REMOVE AFTER DEBUGGING
+--      if i>1 then -- share parameters of each img cand vector
+--	 image_candidate_vector.data.module:share(image_candidate_vectors[1].data.module,'weight','gradWeight')
+--      end
+      table.insert(image_candidate_vectors, image_candidate_vector)
+   end
+
+   -- we store image_candidate_vectors within a global shareList,
+   -- since they will share weights with each other (weight sharing is
+   -- performed right before returning a model, since, in case we're
+   -- on gpu's, it has to be done before the model is cudified)
+   table.insert(shareList,image_candidate_vectors)
+   
+   -- reshaping the table into a matrix with a candidate
+   -- vector per row
+   -- ==> second argument to JoinTable tells it that 
+   -- the expected inputs in the table are one-dimensional (the
+   -- candidate vectors), necessary not to confuse 
+   -- it when batches are passed
+   -- local all_candidate_values=nn.JoinTable(1,1)(nn.Peek()(image_candidate_vectors))
+   local all_candidate_values=nn.JoinTable(1,1)(image_candidate_vectors)
+
+   -- again, note setNumInputDims for
+   -- taking the dot product of each candidate vector
+   -- with the retrieved_entity vector
+   local candidate_matrix=nn.View(#image_candidate_vectors,-1):setNumInputDims(1)(all_candidate_values)
+   -- local dot_vector_split=nn.MM(false,true)(nn.Peek()({retrieved_entity_matrix,candidate_matrix}))
+   local dot_vector_split=nn.MM(false,true)({retrieved_entity_matrix,candidate_matrix})
+   local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
+                                                                           -- processing
+   return nn.LogSoftMax()(dot_vector)
+end
+
+
 -- our main model
 function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,use_cuda)
 
@@ -230,13 +272,32 @@ function ff(t_inp_size,v_inp_size,mm_size,h_size,inp_seq_cardinality,candidate_c
    local retrieved_entity_matrix_2D = nn.Linear(h_size,mm_size)(hidden_layers[h_layer_count])
    -- local retrieved_entity_matrix=nn.View(-1):setNumInputDims(2)(retrieved_entity_matrix_2D)
    local retrieved_entity_matrix=nn.Reshape(1,mm_size,true)(retrieved_entity_matrix_2D) -- reshaping to minibatch x 1 x mm_size for dot product with candidate image vectors in return_entity_image function
+
+   -- the function return_entity_image assumes a global shareList
+   -- table to be updated with modules sharing their parameters, so we
+   -- must initialize shareList
+   shareList = {}
    
    -- now we call the return_entity_image function to obtain a softmax
    -- over candidate images
    local output_distribution=return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,retrieved_entity_matrix)
 
    -- wrapping up the model
-   return nn.gModule(inputs,{output_distribution})
+   local model= nn.gModule(inputs,{output_distribution})
+
+   -- following code is adapted from MeMNN 
+   if (use_cuda ~= 0) then
+      model:cuda()
+   end
+   -- IMPORTANT! do weight sharing after model is in cuda
+   for i = 1,#shareList do
+      local m1 = shareList[i][1].data.module
+      for j = 2,#shareList[i] do
+	 local m2 = shareList[i][j].data.module
+	 m2:share(m1,'weight','bias','gradWeight','gradBias')
+      end
+   end
+   return model
 
 end
 
