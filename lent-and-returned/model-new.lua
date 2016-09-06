@@ -280,7 +280,7 @@ function ff(t_inp_size,v_inp_size,mm_size,h_size,inp_seq_cardinality,candidate_c
    
    -- now we call the return_entity_image function to obtain a softmax
    -- over candidate images
-   local output_distribution=return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,retrieved_entity_matrix)
+   local output_distribution=return_entity_image_in_progress(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,retrieved_entity_matrix)
 
    -- wrapping up the model
    local model= nn.gModule(inputs,{output_distribution})
