@@ -15,7 +15,7 @@ math.randomseed(os.time())
 cmd = torch.CmdLine()
 
 -- run on GPU? no by default
-cmd:option('cmd:option('--use_cuda',0,'is a GPU available? default: nope, specify value different from 0 to use GPU')
+cmd:option('--use_cuda',0,'is a GPU available? default: nope, specify value different from 0 to use GPU')
 
 -- options concerning input processing 
 cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREFIX.(train|valid) to be in the folder where program is called. Format: one trial per line: first field linguistic query, second field index of the first occurrence of query in the object token sequence (see next), rest of the fields are token sequence (query format: object:att1:att2; object token format: att:object)')
