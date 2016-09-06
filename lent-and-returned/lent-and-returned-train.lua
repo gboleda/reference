@@ -239,7 +239,7 @@ feval = function(x)
       end
    end
    if (opt.use_cuda ~= 0) then
-      batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices):cuda
+      batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices):cuda()
    else
       batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices)
    end
