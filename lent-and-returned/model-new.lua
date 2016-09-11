@@ -301,6 +301,174 @@ function ff(t_inp_size,v_inp_size,mm_size,h_size,inp_seq_cardinality,candidate_c
 
 end
 
+---------- PASTED FROM HERE
+-- a control rnn from the inputs to a softmax over the outputs
+function rnn(t_inp_size,v_inp_size,summary_size,h_size,inp_seq_cardinality,candidate_cardinality,h_layer_count,nonlinearity_summary,nonlinearity_hidden,dropout_p,use_cuda)
+
+   local inputs = {}
+
+   -- first, we process the query, mapping its components in parts onto a hidden layer to
+   -- which we will later also map the final state of recurrent
+   -- processing of the object tokens
+
+   -- the first attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_attribute_1_do = nn.Dropout(dropout_p)(curr_input)
+   local query_attribute_1 = nn.Linear(t_inp_size, h_size)(query_attribute_1_do)
+
+   -- the second attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_attribute_2_do = nn.Dropout(dropout_p)(curr_input)
+   local query_attribute_2 = nn.Linear(t_inp_size, h_size)(query_attribute_2_do)
+   -- sharing matrix with first attribute (no bias/gradBias sharing
+   -- since we're not using the bias term)
+   query_attribute_2.data.module:share(query_attribute_1.data.module,'weight','bias','gradWeight','gradBias')
+   
+   -- the object name in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_object_do = nn.Dropout(dropout_p)(curr_input)
+   local query_object = nn.Linear(t_inp_size, h_size)(query_object_do)
+
+
+   -- now we process the object tokens
+
+   -- a table to store the summary vector as it evolves through time
+   local summary_vector_table = {}
+
+   -- the first object token is a special case, as it has no history
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local first_token_attribute_do = nn.Dropout(dropout_p)(curr_input)
+   local first_token_attribute = nn.Linear(t_inp_size,summary_size)(first_token_attribute_do)
+   -- then processing the object image
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local first_token_object_do = nn.Dropout(dropout_p)(curr_input)
+   local first_token_object = nn.Linear(v_inp_size,summary_size)(first_token_object_do)
+   -- putting together attribute and object 
+   local first_object_token_vector = nn.CAddTable()({first_token_attribute,first_token_object})
+
+   -- passing through a nonlinearity if requested, and adding to the table of summary vectors
+   if (nonlinearity == 'none') then
+      table.insert(summary_vector_table,first_object_token_vector)
+   else
+      local nonlinear_summary_vector = nil
+      -- if requested, passing through a nonlinear transform: relu,
+      -- tanh sigmoid
+      if (nonlinearity == 'relu') then
+	 nonlinear_summary_vector = nn.ReLU()(first_object_token_vector)
+      elseif (nonlinearity == 'tanh') then
+	 nonlinear_summary_vector = nn.Tanh()(first_object_token_vector)
+      else -- sigmoid is leftover option  (nonlinearity == 'sigmoid') then
+	 nonlinear_summary_vector = nn.Sigmoid()(first_object_token_vector)
+      end
+      table.insert(summary_vector_table,nonlinear_summary_vector)
+   end
+
+
+   -- now we process all the other object tokens in a loop
+   for i=2,inp_seq_cardinality do
+      -- processing the attribute
+      local curr_input = nn.Identity()()
+      table.insert(inputs,curr_input)
+      local token_attribute_do = nn.Dropout(dropout_p)(curr_input)
+      local token_attribute = nn.Linear(t_inp_size,summary_size)(token_attribute_do)
+      -- sharing the word mapping weights with the first token
+      token_attribute.data.module:share(first_token_attribute.data.module,'weight','bias','gradWeight','gradBias')
+      -- processing the object image
+      local curr_input = nn.Identity()()
+      table.insert(inputs,curr_input)
+      local token_object_do = nn.Dropout(dropout_p)(curr_input)
+      local token_object = nn.Linear(t_inp_size,summary_size)(token_object_do)
+      -- parameters to be shared with first token object image
+      token_object.data.module:share(first_token_object.data.module,'weight','bias','gradWeight','gradBias')
+
+      -- also mapping the previous state of the summary vector
+      local recurrent_vector = nn.Linear(summary_size,summary_size)(summary_vector_table[i-1])
+      -- NEED TO DO WEIGHT SHARING HERE!!!!!
+
+      -- putting together attribute, object and recurrence, possibly
+      -- passing through a non-linearity, then recording in the
+      -- summary_vector_table the current state of the summary vector
+      local summary_vector = nn.CAddTable()({token_attribute,token_object,recurrent_vector})
+      if (nonlinearity == 'none') then
+	 table.insert(summary_vector_table,summary_vector)
+      else
+	 local nonlinear_summary_vector = nil
+	 -- if requested, passing through a nonlinear transform: relu,
+	 -- tanh sigmoid
+	 if (nonlinearity == 'relu') then
+	    nonlinear_summary_vector = nn.ReLU()(summary_vector)
+	 elseif (nonlinearity == 'tanh') then
+	    nonlinear_summary_vector = nn.Tanh()(summary_vector)
+	 else -- sigmoid is leftover option  (nonlinearity == 'sigmoid') then
+	    nonlinear_summary_vector = nn.Sigmoid()(summary_vector)
+	 end
+	 table.insert(summary_vector_table,nonlinear_summary_vector)
+      end
+
+      -- I AM AROUND HERE, BUT SEE WEIGHT SHARING NOTE ABOVE
+
+      -- measuring the similarity of the current vector to the ones in
+      -- the previous state of the entity matrix
+      local raw_similarity_profile_to_summary_vector = nn.MM(false,false)
+      ({summary_vector_table[i-1],object_token_vector})
+
+      -- computing the new-entity cell value
+      raw_new_entity_mass = nil
+      -- average or sum input vector cells...
+      if (opt.new_mass_aggregation_method=='mean') then
+	 raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,2)(raw_similarity_profile_to_summary_vector))
+      else
+	 raw_new_entity_mass = nn.Linear(1,1)(nn.Sum(1,2)(raw_similarity_profile_to_summary_vector))
+      end
+      if i==2 then -- this is the first cell, let's store it as a template
+	 table.insert(raw_new_entity_mass_template_table,raw_new_entity_mass)
+      else -- share parameters
+	 raw_new_entity_mass.data.module:share(raw_new_entity_mass_template_table[1].data.module,'weight','bias','gradWeight','gradBias')
+      end
+
+      -- now, we concatenate the similarity profile with this new
+      -- cell, and normalize
+      -- NB: the output of the following very messy line of code is a
+      -- matrix with the profile of each item in a minibatch as
+      -- a ROW vector
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_summary_vector,raw_new_entity_mass})))
+
+      -- we now create a matrix that has, on each ROW, the current
+      -- token vector, multiplied by the corresponding entry on the
+      -- normalized similarity profile (including, in the final row,
+      -- weighting by the normalized new mass cell): 
+      local weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
+
+      -- at this point we update the entity matrix by adding the
+      -- weighted versions of the current object token vector to each
+      -- row of it (we pad the bottom of the entity matrix with a zero
+      -- row, so that we can add it to the version of the current
+      -- object token vector that was weighted by the new mass cell
+      summary_vector_table[i]= nn.CAddTable(){
+	 nn.Padding(1,1,2)(summary_vector_table[i-1]),weighted_object_token_vector_matrix}:annotate{'summary_vector_table' .. i}
+   end
+
+   -- at this point, we take the dot product of each row (entity)
+   -- vector in the entity matrix with the linguistic query vector, to
+   -- obtain an entity-to-query similarity profile, that we
+   -- LOG-softmax normalize (the log is there for compatibility with
+   -- ClassNLLCriterion)
+   local query_entity_similarity_profile = nn.LogSoftMax()(nn.View(-1):setNumInputDims(2)(nn.MM(false,false)
+											  ({summary_vector_table[inp_seq_cardinality],query})))
+
+   -- wrapping up the model
+   return nn.gModule(inputs,{query_entity_similarity_profile})
+
+end
+
+
+---------- PASTED TO HERE
+
 function OLDff(t_inp_size,v_inp_size,h_size,inp_seq_cardinality,h_layer_count,nonlinearity)
 
    local inputs = {}
