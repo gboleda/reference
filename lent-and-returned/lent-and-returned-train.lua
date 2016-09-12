@@ -101,12 +101,12 @@ end
 -- ****** loading models, data handling functions ******
 
 print('reading the models file')
---dofile('model.lua')
-dofile('model-new.lua')
+dofile('model.lua')
+--dofile('model-new.lua')
 
 print('reading the data processing file')
---dofile('data.lua')
-dofile('data-new.lua')
+dofile('data.lua')
+--dofile('data-new.lua')
 
 -- ****** input data reading ******
 

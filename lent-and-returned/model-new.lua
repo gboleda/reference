@@ -149,7 +149,7 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dro
       local curr_input = nn.Identity()()
       table.insert(inputs,curr_input)
       local token_object_do = nn.Dropout(dropout_p)(curr_input)
-      local token_object = nn.LinearNB(t_inp_size,mm_size)(token_object_do)
+      local token_object = nn.LinearNB(t_inp_size,mm_size)(token_object_do) -- gbt: why not v_inp_size? why doesn't it break down?
       -- parameters to be shared with first token object image
       token_object.data.module:share(first_token_object.data.module,'weight','gradWeight')
       -- putting together attribute and object 
@@ -205,6 +205,20 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dro
    -- ClassNLLCriterion)
    local query_entity_similarity_profile = nn.LogSoftMax()(nn.View(-1):setNumInputDims(2)(nn.MM(false,false)
 											  ({entity_matrix_table[inp_seq_cardinality],query})))
+
+   -- we now do "soft retrieval" of the entity that matches the query:
+   -- we obtain a vector that is a weighted sum of all the entity
+   -- vectors in the entity library (weights= similarity profile, such
+   -- that we will return the entity that is most similar to the
+   -- query) (we get a matrix of such vectors because of mini-batches)
+   local retrieved_entity_matrix_2D = ***
+   -- local retrieved_entity_matrix=nn.View(-1):setNumInputDims(2)(retrieved_entity_matrix_2D)
+   local retrieved_entity_matrix=nn.Reshape(1,mm_size,true)(retrieved_entity_matrix_2D) -- reshaping to minibatch x 1 x mm_size for dot product with candidate image vectors in return_entity_image function
+
+   
+   -- now we call the return_entity_image function to obtain a softmax
+   -- over candidate images
+   local output_distribution=return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,retrieved_entity_matrix)
 
    -- wrapping up the model
    return nn.gModule(inputs,{query_entity_similarity_profile})

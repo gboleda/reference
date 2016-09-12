@@ -3,7 +3,8 @@ date
 # BINDING
 
 # BEGIN TINY DATA
-datadir='/Users/gboleda/Desktop/love-project/data/lent-returned-v2/exp1-tiny-none'
+#datadir='/Users/gboleda/Desktop/love-project/data/lent-returned-v2/exp1-tiny-none'
+datadir='/Users/gboleda/Desktop/love-project/data/binding/exp-tiny-trivial'
 trsetsize=40
 vsetsize=50
 tesetsize=100
@@ -19,9 +20,9 @@ prefixoutput=exp1-tiny-none
 # # END LARGE DATA
 
 # MODEL PARAMETERS
-max_epochs=1
+max_epochs=10
 min_epochs=10
-model=ff
+model=entity_prediction #ff
 mini_batch_size=1 # consider 10, 20, 100 future
 lr_decay=0.0001 # values for future: 0.001 0.0001
 momentum=0.09 # values for future: 0.0, 0.09*, 0.3, 0.6, 0.9
