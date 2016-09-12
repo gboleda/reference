@@ -3,7 +3,7 @@ date
 # BINDING
 
 # BEGIN TINY DATA
-datadir='/Users/gboleda/Desktop/love-project/data/lent-returned-v2/exp1-tiny-none'
+datadir='exp1-tiny-none'
 #datadir='/Users/gboleda/Desktop/love-project/data/binding/exp-tiny-trivial'
 trsetsize=40
 vsetsize=50
@@ -20,7 +20,7 @@ prefixoutput=exp1-tiny-none
 # # END LARGE DATA
 
 # MODEL PARAMETERS
-max_epochs=2
+max_epochs=1
 min_epochs=1
 model=entity_prediction #ff
 mini_batch_size=10 # consider 10, 20, 100 future
@@ -29,7 +29,7 @@ momentum=0.09 # values for future: 0.0, 0.09*, 0.3, 0.6, 0.9
 learning_rate=0.09 #
 input_sequence_cardinality=6
 cand_cardinality=3
-mult_size=300
+mult_size=3    # real: 300
 hidden_count=2 # number of hidden layers [1]
 ff_nonlinearity=none # nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh) [none]
 dropout_p=0.5

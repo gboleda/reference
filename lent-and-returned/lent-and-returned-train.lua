@@ -198,6 +198,7 @@ else -- default is entity prediction
 			   v_input_size,
 			   opt.multimodal_size,
 			   opt.input_sequence_cardinality,
+			   opt.candidate_cardinality,
 			   opt.dropout_prob,
 			   opt.use_cuda)
 end
@@ -246,6 +247,7 @@ feval = function(x)
 
    -- take forward pass for current training batch
    local model_prediction=model:forward(batch_input_table)
+
    local loss = criterion:forward(model_prediction,batch_gold_index_list)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
@@ -313,6 +315,7 @@ while (continue_training==1) do
    -- note that shuffle has to be LongTensor for compatibility
    -- with the index function used below
    model:training() -- for dropout; make sure we are in training mode
+
 
    -- we now start reading batches
    local batch_begin_index = 1
