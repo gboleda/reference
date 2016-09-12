@@ -187,7 +187,7 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dro
       -- token vector, multiplied by the corresponding entry on the
       -- normalized similarity profile (including, in the final row,
       -- weighting by the normalized new mass cell): 
-      local weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
+      local weighted_object_token_vector_matrix = nn.MM(false,true){normalized_similarity_profile,object_token_vector}
 
       -- at this point we update the entity matrix by adding the
       -- weighted versions of the current object token vector to each
@@ -201,27 +201,29 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dro
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
    -- obtain an entity-to-query similarity profile, that we
-   -- LOG-softmax normalize (the log is there for compatibility with
-   -- ClassNLLCriterion)
-   local query_entity_similarity_profile = nn.LogSoftMax()(nn.View(-1):setNumInputDims(2)(nn.MM(false,false)
-											  ({entity_matrix_table[inp_seq_cardinality],query})))
+   -- softmax normalize
+   -- we have to do 2 Views cause we don't know how to do it otherwise
 
+   local tmp = nn.MM(false,false)(nn.Peek()({entity_matrix_table[inp_seq_cardinality],query}))
+   local tmp2 = nn.View(-1):setNumInputDims(2)(nn.Peek()(tmp))
+   local tmp3 = nn.SoftMax()(nn.Peek()(tmp2))
+   local query_entity_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.Peek()(tmp3)))
+
+   local query_entity_similarity_profile_2D =nn.View(1,-1):setNumInputDims(1)(query_entity_similarity_profile)
+   
    -- we now do "soft retrieval" of the entity that matches the query:
    -- we obtain a vector that is a weighted sum of all the entity
    -- vectors in the entity library (weights= similarity profile, such
    -- that we will return the entity that is most similar to the
    -- query) (we get a matrix of such vectors because of mini-batches)
-   local retrieved_entity_matrix_2D = ***
-   -- local retrieved_entity_matrix=nn.View(-1):setNumInputDims(2)(retrieved_entity_matrix_2D)
-   local retrieved_entity_matrix=nn.Reshape(1,mm_size,true)(retrieved_entity_matrix_2D) -- reshaping to minibatch x 1 x mm_size for dot product with candidate image vectors in return_entity_image function
-
+   local retrieved_entity_matrix = nn.MM(false,false){query_entity_similarity_profile_2D,entity_matrix_table[inp_seq_cardinality]}
    
    -- now we call the return_entity_image function to obtain a softmax
    -- over candidate images
-   local output_distribution=return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,retrieved_entity_matrix)
+   local output_distribution=return_entity_image(v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,retrieved_entity_matrix)
 
    -- wrapping up the model
-   return nn.gModule(inputs,{query_entity_similarity_profile})
+   return nn.gModule(inputs,{output_distribution})
 
 end
 
