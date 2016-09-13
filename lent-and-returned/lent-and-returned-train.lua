@@ -36,10 +36,11 @@ cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 ---- entity_prediction parameters
 cmd:option('--new_mass_aggregation_method','mean','when computing the new entity mass cell, use as input mean (default) or sum of values in similarity profile')
----- ff parameters
+---- ff and rnn parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
-cmd:option('--ff_nonlinearity','none','nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh)')
+cmd:option('--ff_nonlinearity','none','nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh)') -- NB: despite the name, also used by rnn
+cmd:option('--summary_size',300, 'size of history vector of RNN')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -186,6 +187,18 @@ if (opt.model=='ff') then
    model=ff(t_input_size,
 	    v_input_size,
 	    opt.multimodal_size,
+	    opt.hidden_size,
+	    opt.input_sequence_cardinality,
+	    opt.candidate_cardinality,
+	    opt.hidden_count,
+	    opt.ff_nonlinearity,
+	    opt.dropout_prob,
+	    opt.use_cuda)
+elseif (opt.model=='rnn') then
+   model=rnn(t_input_size,
+	    v_input_size,
+	    opt.multimodal_size,
+	    opt.summary_size,
 	    opt.hidden_size,
 	    opt.input_sequence_cardinality,
 	    opt.candidate_cardinality,

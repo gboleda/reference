@@ -447,7 +447,7 @@ function ff(t_inp_size,v_inp_size,mm_size,h_size,inp_seq_cardinality,candidate_c
 end
 
 -- a control rnn from the inputs to a softmax over the outputs
-function rnn(t_inp_size,v_inp_size,summary_size,h_size,inp_seq_cardinality,candidate_cardinality,h_layer_count,nonlinearity,dropout_p,use_cuda)
+function rnn(t_inp_size,v_inp_size,mm_size,summary_size,h_size,inp_seq_cardinality,candidate_cardinality,h_layer_count,nonlinearity,dropout_p,use_cuda)
 
    local inputs = {}
 
@@ -487,7 +487,7 @@ function rnn(t_inp_size,v_inp_size,summary_size,h_size,inp_seq_cardinality,candi
    -- nonlinearity (if requested in general) to make it consistent
    -- with the summary vector representation, where the nonlinearity
    -- is typcially useful to properly handle the recurrence
-   local linear_query_full_vector = nn.CAddTable({query_attribute_1,query_attribute_2,query_object})
+   local linear_query_full_vector = nn.CAddTable()({query_attribute_1,query_attribute_2,query_object})
    local query_full_vector = nil
    if (nonlinearity == 'none') then
       query_full_vector=linear_query_full_vector
@@ -529,7 +529,7 @@ function rnn(t_inp_size,v_inp_size,summary_size,h_size,inp_seq_cardinality,candi
    table.insert(inputs,curr_input)
    local first_token_object_do = nn.Dropout(dropout_p)(curr_input)
    local first_token_object = nn.Linear(v_inp_size,summary_size)(first_token_object_do)
-   table.inputs(token_object_vectors_table,first_token_object)
+   table.insert(token_object_vectors_table,first_token_object)
    -- putting together attribute and object 
    local first_object_token_vector = nn.CAddTable()({first_token_attribute,first_token_object})
 
