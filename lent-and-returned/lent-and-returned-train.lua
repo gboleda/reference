@@ -36,6 +36,7 @@ cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 ---- entity_prediction parameters
 cmd:option('--new_mass_aggregation_method','mean','when computing the new entity mass cell, use as input mean (default) or sum of values in similarity profile')
+cmd:option('--new_cell_nonlinearity','none','nonlinear transformation of mapping to predict new cell (options: none (default), sigmoid, relu, tanh)')
 ---- ff and rnn parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
@@ -212,6 +213,7 @@ else -- default is entity prediction
 			   opt.multimodal_size,
 			   opt.input_sequence_cardinality,
 			   opt.candidate_cardinality,
+			   opt.new_cell_nonlinearity,
 			   opt.dropout_prob,
 			   opt.use_cuda)
 end

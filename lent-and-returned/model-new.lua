@@ -68,7 +68,7 @@ end
 
 
 -- our main model
-function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,dropout_p,use_cuda)
+function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,dropout_p,use_cuda)
 
    local inputs = {}
 
@@ -166,7 +166,7 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
       ({entity_matrix_table[i-1],object_token_vector})
 
       -- computing the new-entity cell value
-      raw_new_entity_mass = nil
+      local raw_new_entity_mass = nil
       -- average or sum input vector cells...
       if (opt.new_mass_aggregation_method=='mean') then
 	 raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix))
@@ -174,13 +174,27 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
 	 raw_new_entity_mass = nn.Linear(1,1)(nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix))
       end
       table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
+      -- passing through nonlinearity if requested
+      local transformed_new_entity_mass=nil
+      if (nonlinearity=='none') then
+	 transformed_new_entity_mass=raw_new_entity_mass
+      else
+	 local nonlinear_hidden_layer = nil
+	 if (nonlinearity == 'relu') then
+	    transformed_new_entity_mass = nn.ReLU()(raw_new_entity_mass)
+	 elseif (nonlinearity == 'tanh') then
+	    transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
+	 else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
+	    transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
+	 end
+      end
 
       -- now, we concatenate the similarity profile with this new
       -- cell, and normalize
       -- NB: the output of the following very messy line of code is a
       -- matrix with the profile of each item in a minibatch as
       -- a ROW vector
-      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,raw_new_entity_mass})))
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,transformed_new_entity_mass})))
 
       -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
