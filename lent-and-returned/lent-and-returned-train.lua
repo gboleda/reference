@@ -289,7 +289,7 @@ function test(input_table,gold_index_list)
    -- to compute accuracy, we first retrieve list of indices of image
    -- vectors that were preferred by the model
    local _,model_guesses_indices=torch.max(model_prediction,2)
-   -- we then count how often this guesses are the same as the gold
+   -- we then count how often these guesses are the same as the gold
    -- note conversions to long if we're not using cuda as only tensor
    -- type
    local hit_count=0
