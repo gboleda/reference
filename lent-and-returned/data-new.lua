@@ -99,7 +99,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	 -- the following somewhat cumbersome expression will remove
 	 -- leading and trailing space, and load all data onto a table
 	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
-	 -- query will contain att1, att2, object, lets retrieve their
+	 -- query will contain object, att1, att2, lets retrieve their
 	 -- word embeddings
 	 local query=current_data[1]:split(":")
 	 query_object_list[i]=word_embeddings[query[1]]
