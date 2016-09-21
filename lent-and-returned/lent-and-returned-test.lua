@@ -153,7 +153,7 @@ if output_debug_file then
    for i=1,opt.test_set_size do
       for j=1,#similarity_profiles_table do
 	 local ref_position = j+1
-	 f:write(ref_position,":: ")
+	 f:write("::",ref_position,"::")
 	 for k=1,similarity_profiles_table[j]:size(2) do
 	    f:write(" ",similarity_profiles_table[j][i][k])
 	 end
