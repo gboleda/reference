@@ -20,8 +20,9 @@ cmd:option('--input_sequence_cardinality', 0, 'number of object tokens in a sequ
 cmd:option('--candidate_cardinality', 0, 'number of images in the output set to pick from')
 cmd:option('--test_file','/Users/gboleda/Desktop/love-project/data/binding/exp-tiny/stimuli.test','name of test file; format: same as that of protocol files used for training')
 cmd:option('--test_set_size',0, 'test set size')
--- output file
+-- output files
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
+cmd:option('--output_debug_file','','if this file is defined, we print to it some information that might vary depending on debugging needs (see directly code of this program to check out what it is currently printing for debugging purposes, if anything)')
 
 opt = cmd:parse(arg or {})
 print(opt)
@@ -31,6 +32,13 @@ local output_guesses_file=nil
 if opt.output_guesses_file~='' then
    output_guesses_file=opt.output_guesses_file
 end
+
+local output_debug_file=nil
+if opt.output_debug_file~='' then
+   output_debug_file=opt.output_debug_file
+end
+
+
 
 -- other general parameters
 -- chunks to read files into
@@ -126,4 +134,24 @@ if output_guesses_file then
    f.close()
 end
 
+-- if requested, print relevant information to a debug file (this might
+-- change from time to time, based on debugging needs)
+if output_debug_file then
+   print("writing further information in " .. output_debug_file)
+
+   local similarity_profiles_table = {}
+   --   local f = io.open(output_debug_file,"w")
+
+   local nodes = model:listModules()[1]['forwardnodes']
+   for i=2,opt.input_sequence_cardinality do
+      local target_annotation = 'normalized_similarity_profile_' .. i
+      for _,node in ipairs(nodes) do
+	 if node.data.annotations.name==target_annotation then
+	    table.insert(similarity_profiles_table,node.data.module.output)
+	 end
+      end
+   end
+--   f:flush()
+--   f.close()
+end
 

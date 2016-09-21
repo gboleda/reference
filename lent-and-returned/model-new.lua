@@ -160,7 +160,7 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
       -- NB: the output of the following very messy line of code is a
       -- matrix with the profile of each item in a minibatch as
       -- a ROW vector
-      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,transformed_new_entity_mass})))
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix,transformed_new_entity_mass}))):annotate{name='normalized_similarity_profile_' .. i}
 
       -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
