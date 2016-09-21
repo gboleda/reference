@@ -140,8 +140,6 @@ if output_debug_file then
    print("writing further information in " .. output_debug_file)
 
    local similarity_profiles_table = {}
-   --   local f = io.open(output_debug_file,"w")
-
    local nodes = model:listModules()[1]['forwardnodes']
    for i=2,opt.input_sequence_cardinality do
       local target_annotation = 'normalized_similarity_profile_' .. i
@@ -151,7 +149,19 @@ if output_debug_file then
 	 end
       end
    end
---   f:flush()
---   f.close()
+   local f = io.open(output_debug_file,"w")
+   for i=1,opt.test_set_size do
+      for j=1,#similarity_profiles_table do
+	 local ref_position = j+1
+	 f:write(ref_position,":: ")
+	 for k=1,similarity_profiles_table[j]:size(2) do
+	    f:write(" ",similarity_profiles_table[j][i][k])
+	 end
+	 f:write(" ")
+      end
+      f:write("\n")
+   end
+   f:flush()
+   f.close()
 end
 
