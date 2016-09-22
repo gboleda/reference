@@ -140,7 +140,7 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
 	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
       raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
-      local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity)
+      local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass'}
       table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
       -- passing through nonlinearity if requested
       local transformed_new_entity_mass=nil
