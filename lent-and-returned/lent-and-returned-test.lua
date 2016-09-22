@@ -22,7 +22,7 @@ cmd:option('--test_file','/Users/gboleda/Desktop/love-project/data/binding/exp-t
 cmd:option('--test_set_size',0, 'test set size')
 -- output files
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
-cmd:option('--output_debug_file','','if this file is defined, we print to it some information that might vary depending on debugging needs (see directly code of this program to check out what it is currently printing for debugging purposes, if anything)')
+cmd:option('--output_debug_prefix','','if this prefix is defined, we print to one or more files with this prefix and various suffixes information that might vary depending on debugging needs (see directly code of this program to check out what it is currently being generated for debugging purposes, if anything)')
 
 opt = cmd:parse(arg or {})
 print(opt)
@@ -33,9 +33,9 @@ if opt.output_guesses_file~='' then
    output_guesses_file=opt.output_guesses_file
 end
 
-local output_debug_file=nil
-if opt.output_debug_file~='' then
-   output_debug_file=opt.output_debug_file
+local output_debug_prefix=nil
+if opt.output_debug_prefix~='' then
+   output_debug_prefix=opt.output_debug_prefix
 end
 
 
@@ -134,22 +134,26 @@ if output_guesses_file then
    f.close()
 end
 
--- if requested, print relevant information to a debug file (this might
+-- if requested, print relevant information to various debug files (this might
 -- change from time to time, based on debugging needs)
-if output_debug_file then
-   print("writing further information in " .. output_debug_file)
+if output_debug_prefix then
+   print("writing further information in one or more files with prefix " .. output_debug_prefix)
 
    local similarity_profiles_table = {}
+   -- debug
+   raw_cumulative_similarity_table = {}
    local nodes = model:listModules()[1]['forwardnodes']
    for i=2,opt.input_sequence_cardinality do
-      local target_annotation = 'normalized_similarity_profile_' .. i
       for _,node in ipairs(nodes) do
-	 if node.data.annotations.name==target_annotation then
+	 if node.data.annotations.name=='normalized_similarity_profile_' .. i then
 	    table.insert(similarity_profiles_table,node.data.module.output)
+	 elseif
+	 node.data.annotations.name=='raw_cumulative_similarity_' .. i then
+	    table.insert(raw_cumulative_similarity_table,node.data.module.output)
 	 end
       end
    end
-   local f = io.open(output_debug_file,"w")
+   local f = io.open(output_debug_prefix .. '.simprofiles',"w")
    for i=1,opt.test_set_size do
       for j=1,#similarity_profiles_table do
 	 local ref_position = j+1
@@ -158,6 +162,16 @@ if output_debug_file then
 	    f:write(" ",similarity_profiles_table[j][i][k])
 	 end
 	 f:write(" ")
+      end
+      f:write("\n")
+   end
+   f:flush()
+   f.close()
+   f = io.open(output_debug_prefix .. '.cumsims',"w")
+   for i=1,opt.test_set_size do
+      for j=1,#raw_cumulative_similarity_table do
+	 local ref_position = j+1
+	 f:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
       end
       f:write("\n")
    end

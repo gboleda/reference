@@ -132,13 +132,15 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
       ({entity_matrix_table[i-1],object_token_vector})
 
       -- computing the new-entity cell value
-      local raw_new_entity_mass = nil
       -- average or sum input vector cells...
+      local raw_cumulative_similarity=nil
       if (opt.new_mass_aggregation_method=='mean') then
-	 raw_new_entity_mass = nn.Linear(1,1)(nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix))
-      else
-	 raw_new_entity_mass = nn.Linear(1,1)(nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix))
+	 raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
+      else -- sum by default
+	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
+      raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
+      local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity)
       table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
       -- passing through nonlinearity if requested
       local transformed_new_entity_mass=nil
