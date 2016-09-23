@@ -227,7 +227,8 @@ model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
 -- if we are working with entity_prediction model, we want the bias for the new cell to be high and the intercept to be negative
 if (opt.model=='entity_prediction') then
    for _,node in ipairs(model.forwardnodes) do
-      if node.data.annotations.name=='raw_new_entity_mass' then
+      if node.data.annotations.name=='raw_new_entity_mass_2' then -- because of parameter sharing, sufficient to set first
+	                                                          -- only
 	 node.data.module.bias:fill(5)
 	 node.data.module.weight:fill(-1)
       end
@@ -369,6 +370,66 @@ while (continue_training==1) do
    local validation_loss,validation_accuracy=test(validation_input_table,validation_gold_index_list)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
+
+   -- debug from here
+   -- look at the values being learned for new entity mass model
+   for _,node in ipairs(model.forwardnodes) do
+      if node.data.annotations.name=='raw_new_entity_mass_2'
+      or node.data.annotations.name=='raw_new_entity_mass_3'
+      or node.data.annotations.name=='raw_new_entity_mass_4'
+      or node.data.annotations.name=='raw_new_entity_mass_5'
+      then
+	 print(node.data.annotations.name)
+	 print('raw new entity mass bias')
+	 print(node.data.module.bias)
+	 print('raw new entity mass weight')
+	 print(node.data.module.weight)
+      end
+   end
+   -- print relevant information to various debug files
+   local output_debug_prefix = "temp-debug_" .. epoch_counter
+   print("writing further information in files with prefix " .. output_debug_prefix)
+
+   local similarity_profiles_table = {}
+   -- debug
+   local raw_cumulative_similarity_table = {}
+   local nodes = model:listModules()[1]['forwardnodes']
+   for i=2,opt.input_sequence_cardinality do
+      for _,node in ipairs(nodes) do
+	 if node.data.annotations.name=='normalized_similarity_profile_' .. i then
+	    table.insert(similarity_profiles_table,node.data.module.output)
+	 elseif
+	 node.data.annotations.name=='raw_cumulative_similarity_' .. i then
+	    table.insert(raw_cumulative_similarity_table,node.data.module.output)
+	 end
+      end
+   end
+   local f = io.open(output_debug_prefix .. '.simprofiles',"w")
+   for i=1,opt.validation_set_size do
+      for j=1,#similarity_profiles_table do
+	 local ref_position = j+1
+	 f:write("::",ref_position,"::")
+	 for k=1,similarity_profiles_table[j]:size(2) do
+	    f:write(" ",similarity_profiles_table[j][i][k])
+	 end
+	 f:write(" ")
+      end
+      f:write("\n")
+   end
+   f:flush()
+   f.close()
+   f = io.open(output_debug_prefix .. '.cumsims',"w")
+   for i=1,opt.validation_set_size do
+      for j=1,#raw_cumulative_similarity_table do
+	 local ref_position = j+1
+	 f:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
+      end
+      f:write("\n")
+   end
+   f:flush()
+   f.close()
+   -- debug to here
+
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
    -- if we have reached the max number of epochs, we stop no matter what

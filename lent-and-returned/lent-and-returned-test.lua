@@ -140,8 +140,7 @@ if output_debug_prefix then
    print("writing further information in one or more files with prefix " .. output_debug_prefix)
 
    local similarity_profiles_table = {}
-   -- debug
-   raw_cumulative_similarity_table = {}
+   local raw_cumulative_similarity_table = {}
    local nodes = model:listModules()[1]['forwardnodes']
    for i=2,opt.input_sequence_cardinality do
       for _,node in ipairs(nodes) do
