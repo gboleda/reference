@@ -224,11 +224,12 @@ end
 model_weights, model_weight_gradients = model:getParameters()
 -- initializing
 model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
--- if we are working with entity_prediction model, we want the bias for the new cell to be high
+-- if we are working with entity_prediction model, we want the bias for the new cell to be high and the intercept to be negative
 if (opt.model=='entity_prediction') then
    for _,node in ipairs(model.forwardnodes) do
       if node.data.annotations.name=='raw_new_entity_mass' then
 	 node.data.module.bias:fill(5)
+	 node.data.module.weight:fill(-1)
       end
    end
 end
