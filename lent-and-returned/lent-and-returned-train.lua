@@ -388,10 +388,6 @@ while (continue_training==1) do
 	    table.insert(similarity_profiles_table,node.data.module.output)
 	 elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
 	    table.insert(raw_cumulative_similarity_table,node.data.module.output)
-	 elseif node.data.annotations.name=='query_entity_similarity_profile' then
-	    -- debug
-	    print('got here')
-	    query_entity_similarity_profile_tensor=node.data.module.output
 	 end
       end
    end
@@ -419,6 +415,11 @@ while (continue_training==1) do
    end
    f:flush()
    f.close()
+   for _,node in ipairs(nodes) do
+      if node.data.annotations.name=='query_entity_similarity_profile' then
+	 query_entity_similarity_profile_tensor=node.data.module.output
+      end
+   end
    f = io.open(output_debug_prefix .. '.querysims',"w")
    for i=1,opt.validation_set_size do
       for k=1,query_entity_similarity_profile_tensor:size(3) do
