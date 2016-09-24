@@ -224,16 +224,17 @@ end
 model_weights, model_weight_gradients = model:getParameters()
 -- initializing
 model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
--- if we are working with entity_prediction model, we want the bias for the new cell to be high and the intercept to be negative
-if (opt.model=='entity_prediction') then
-   for _,node in ipairs(model.forwardnodes) do
-      if node.data.annotations.name=='raw_new_entity_mass_2' then -- because of parameter sharing, sufficient to set first
-	                                                          -- only
-	 node.data.module.bias:fill(5)
-	 node.data.module.weight:fill(-1)
-      end
-   end
-end
+-- following to remain here as an example if we need a model for initialization of specific parameters!
+-- -- if we are working with entity_prediction model, we want the bias for the new cell to be high and the intercept to be negative
+-- if (opt.model=='entity_prediction') then
+--    for _,node in ipairs(model.forwardnodes) do
+--       if node.data.annotations.name=='raw_new_entity_mass_2' then -- because of parameter sharing, sufficient to set first
+-- 	                                                          -- only
+-- 	 node.data.module.bias:fill(5)
+-- 	 node.data.module.weight:fill(-1)
+--       end
+--    end
+-- end
 
 print('number of parameters in the model: ' .. model_weights:nElement())
 
@@ -372,20 +373,6 @@ while (continue_training==1) do
    print('validation accuracy: ' .. validation_accuracy)
 
    -- debug from here
-   -- look at the values being learned for new entity mass model
-   for _,node in ipairs(model.forwardnodes) do
-      if node.data.annotations.name=='raw_new_entity_mass_2'
-      or node.data.annotations.name=='raw_new_entity_mass_3'
-      or node.data.annotations.name=='raw_new_entity_mass_4'
-      or node.data.annotations.name=='raw_new_entity_mass_5'
-      then
-	 print(node.data.annotations.name)
-	 print('raw new entity mass bias')
-	 print(node.data.module.bias)
-	 print('raw new entity mass weight')
-	 print(node.data.module.weight)
-      end
-   end
    -- print relevant information to various debug files
    local output_debug_prefix = "temp-debug_" .. epoch_counter
    print("writing further information in files with prefix " .. output_debug_prefix)

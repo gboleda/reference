@@ -85,7 +85,9 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
    ---- token object mappings
    local token_object_mappings = {}
    --- mappings to raw new entity mass
-   local raw_new_entity_mass_mappings = {}
+   -- debug: comment following line back in
+   -- local raw_new_entity_mass_mappings = {}
+   -- debug: comment previous line back in
 
    -- the first object token is a special case, as it will always be
    -- directly mapped to the first row of the entity matrix
@@ -140,21 +142,30 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
 	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
       raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
-      local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
-      table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
+
+
+      -- debug from here
+      -- we hard-code the raw_new_entity model
+      local raw_new_entity_mass = nn.AddConstant(2)(nn.MulConstant(-1)(raw_cumulative_similarity)):annotate{name='raw_new_entity_mass'}
+      -- FOLLOWING IS THE ORIGINAL CODE, TO BE UNCOMMENTED
+      -- local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
+      -- table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
+      -- ABOVE IS ORIGINAL CODE, TO BE COMMENTED BACK IN
+      -- debug to here
+
       -- passing through nonlinearity if requested
       local transformed_new_entity_mass=nil
       if (nonlinearity=='none') then
-	 transformed_new_entity_mass=raw_new_entity_mass
+      	 transformed_new_entity_mass=raw_new_entity_mass
       else
-	 local nonlinear_hidden_layer = nil
-	 if (nonlinearity == 'relu') then
-	    transformed_new_entity_mass = nn.ReLU()(raw_new_entity_mass)
-	 elseif (nonlinearity == 'tanh') then
-	    transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
-	 else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
-	    transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
-	 end
+      	 local nonlinear_hidden_layer = nil
+      	 if (nonlinearity == 'relu') then
+      	    transformed_new_entity_mass = nn.ReLU()(raw_new_entity_mass)
+      	 elseif (nonlinearity == 'tanh') then
+      	    transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
+      	 else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
+      	    transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
+      	 end
       end
 
       -- now, we concatenate the similarity profile with this new
