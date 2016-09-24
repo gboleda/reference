@@ -378,16 +378,20 @@ while (continue_training==1) do
    print("writing further information in files with prefix " .. output_debug_prefix)
 
    local similarity_profiles_table = {}
-   -- debug
    local raw_cumulative_similarity_table = {}
+   local query_entity_similarity_profile_tensor = nil
+
    local nodes = model:listModules()[1]['forwardnodes']
    for i=2,opt.input_sequence_cardinality do
       for _,node in ipairs(nodes) do
 	 if node.data.annotations.name=='normalized_similarity_profile_' .. i then
 	    table.insert(similarity_profiles_table,node.data.module.output)
-	 elseif
-	 node.data.annotations.name=='raw_cumulative_similarity_' .. i then
+	 elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
 	    table.insert(raw_cumulative_similarity_table,node.data.module.output)
+	 elseif node.data.annotations.name=='query_entity_similarity_profile' then
+	    -- debug
+	    print('got here')
+	    query_entity_similarity_profile_tensor=node.data.module.output
 	 end
       end
    end
@@ -410,6 +414,15 @@ while (continue_training==1) do
       for j=1,#raw_cumulative_similarity_table do
 	 local ref_position = j+1
 	 f:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
+      end
+      f:write("\n")
+   end
+   f:flush()
+   f.close()
+   f = io.open(output_debug_prefix .. '.querysims',"w")
+   for i=1,opt.validation_set_size do
+      for k=1,query_entity_similarity_profile_tensor:size(3) do
+	 f:write(query_entity_similarity_profile_tensor[i][1][k]," ")
       end
       f:write("\n")
    end

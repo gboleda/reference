@@ -146,7 +146,7 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
 
       -- debug from here
       -- we hard-code the raw_new_entity model
-      local raw_new_entity_mass = nn.AddConstant(2)(nn.MulConstant(-1)(raw_cumulative_similarity)):annotate{name='raw_new_entity_mass'}
+      local raw_new_entity_mass = nn.AddConstant(5)(nn.MulConstant(-1)(raw_cumulative_similarity)):annotate{name='raw_new_entity_mass'}
       -- FOLLOWING IS THE ORIGINAL CODE, TO BE UNCOMMENTED
       -- local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
       -- table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
@@ -204,8 +204,8 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
    -- by temperature)
    local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix_table[inp_seq_cardinality],query}))
    local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
-   local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile))
-   
+   local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
+
    -- we now do "soft retrieval" of the entity that matches the query:
    -- we obtain a vector that is a weighted sum of all the entity
    -- vectors in the entity library (weights= similarity profile, such
