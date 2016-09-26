@@ -31,7 +31,7 @@ cmd:option('--validation_set_size',0, 'validation set size')
 cmd:option('--save_model_to_file','', 'if a string is passed, after training has finished, the trained model is saved as binary file named like the string')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff)')
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_predition_bias)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 ---- entity_prediction parameters
@@ -198,16 +198,26 @@ if (opt.model=='ff') then
 	    opt.use_cuda)
 elseif (opt.model=='rnn') then
    model=rnn(t_input_size,
-	    v_input_size,
-	    opt.multimodal_size,
-	    opt.summary_size,
-	    opt.hidden_size,
-	    opt.input_sequence_cardinality,
-	    opt.candidate_cardinality,
-	    opt.hidden_count,
-	    opt.ff_nonlinearity,
-	    opt.dropout_prob,
-	    opt.use_cuda)
+	     v_input_size,
+	     opt.multimodal_size,
+	     opt.summary_size,
+	     opt.hidden_size,
+	     opt.input_sequence_cardinality,
+	     opt.candidate_cardinality,
+	     opt.hidden_count,
+	     opt.ff_nonlinearity,
+	     opt.dropout_prob,
+	     opt.use_cuda)
+elseif (opt.model=='entity_prediction_bias') then
+   model=entity_prediction_bias(t_input_size,
+				v_input_size,
+				opt.multimodal_size,
+				opt.input_sequence_cardinality,
+				opt.candidate_cardinality,
+				opt.new_cell_nonlinearity,
+				opt.temperature,
+				opt.dropout_prob,
+				opt.use_cuda)
 else -- default is entity prediction
    model=entity_prediction(t_input_size,
 			   v_input_size,
@@ -224,7 +234,9 @@ end
 model_weights, model_weight_gradients = model:getParameters()
 -- initializing
 model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
--- following to remain here as an example if we need a model for initialization of specific parameters!
+
+-- following to remain here as an example even when we don't use it,
+-- if we need a model for initialization of specific parameters!
 -- -- if we are working with entity_prediction model, we want the bias for the new cell to be high and the intercept to be negative
 -- if (opt.model=='entity_prediction') then
 --    for _,node in ipairs(model.forwardnodes) do
