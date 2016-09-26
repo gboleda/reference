@@ -264,7 +264,6 @@ function entity_prediction(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,can
 
 end
 
--- PASTED FROM HERE
 -- our main model with bias
 function entity_prediction_bias(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda)
 
@@ -462,7 +461,6 @@ function entity_prediction_bias(t_inp_size,v_inp_size,mm_size,inp_seq_cardinalit
    return model
 
 end
--- PASTED TO HERE
 
 -- a control feed forward network from the concatenation of
 -- inputs to a softmax over the output

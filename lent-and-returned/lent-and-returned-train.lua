@@ -29,6 +29,7 @@ cmd:option('--validation_set_size',0, 'validation set size')
 
 -- options concerning output processing
 cmd:option('--save_model_to_file','', 'if a string is passed, after training has finished, the trained model is saved as binary file named like the string')
+cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of each epoch, we print to one or more files with this prefix (and various suffixes) information that might vary depending on debugging needs (see directly code of this program to check out what it is currently being generated for debugging purposes, if anything)')
 
 -- model parameters
 cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_predition_bias)')
@@ -71,6 +72,12 @@ cmd:option('--mini_batch_size',10,'mini batch size')
 
 opt = cmd:parse(arg or {})
 print(opt)
+
+
+local output_debug_prefix=nil
+if opt.output_debug_prefix~='' then
+   output_debug_prefix=opt.output_debug_prefix
+end
 
 -- ****** other general parameters ******
 
@@ -385,62 +392,63 @@ while (continue_training==1) do
    print('validation accuracy: ' .. validation_accuracy)
 
    -- debug from here
-   -- print relevant information to various debug files
-   local output_debug_prefix = "temp-debug_" .. epoch_counter
-   print("writing further information in files with prefix " .. output_debug_prefix)
+   if output_debug_prefix then
+      local output_debug_prefix_epoch = output_debug_prefix .. epoch_counter
+      print("writing further information in one or more files with prefix " .. output_debug_prefix_epoch)
 
-   local similarity_profiles_table = {}
-   local raw_cumulative_similarity_table = {}
-   local query_entity_similarity_profile_tensor = nil
+      local similarity_profiles_table = {}
+      local raw_cumulative_similarity_table = {}
+      local query_entity_similarity_profile_tensor = nil
 
-   local nodes = model:listModules()[1]['forwardnodes']
-   for i=2,opt.input_sequence_cardinality do
+      local nodes = model:listModules()[1]['forwardnodes']
+      for i=2,opt.input_sequence_cardinality do
+	 for _,node in ipairs(nodes) do
+	    if node.data.annotations.name=='normalized_similarity_profile_' .. i then
+	       table.insert(similarity_profiles_table,node.data.module.output)
+	    elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
+	       table.insert(raw_cumulative_similarity_table,node.data.module.output)
+	    end
+	 end
+      end
+      local f = io.open(output_debug_prefix_epoch .. '.simprofiles',"w")
+      for i=1,opt.validation_set_size do
+	 for j=1,#similarity_profiles_table do
+	    local ref_position = j+1
+	    f:write("::",ref_position,"::")
+	    for k=1,similarity_profiles_table[j]:size(2) do
+	       f:write(" ",similarity_profiles_table[j][i][k])
+	    end
+	    f:write(" ")
+	 end
+	 f:write("\n")
+      end
+      f:flush()
+      f.close()
+      f = io.open(output_debug_prefix_epoch .. '.cumsims',"w")
+      for i=1,opt.validation_set_size do
+	 for j=1,#raw_cumulative_similarity_table do
+	    local ref_position = j+1
+	    f:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
+	 end
+	 f:write("\n")
+      end
+      f:flush()
+      f.close()
       for _,node in ipairs(nodes) do
-	 if node.data.annotations.name=='normalized_similarity_profile_' .. i then
-	    table.insert(similarity_profiles_table,node.data.module.output)
-	 elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
-	    table.insert(raw_cumulative_similarity_table,node.data.module.output)
+	 if node.data.annotations.name=='query_entity_similarity_profile' then
+	    query_entity_similarity_profile_tensor=node.data.module.output
 	 end
       end
-   end
-   local f = io.open(output_debug_prefix .. '.simprofiles',"w")
-   for i=1,opt.validation_set_size do
-      for j=1,#similarity_profiles_table do
-	 local ref_position = j+1
-	 f:write("::",ref_position,"::")
-	 for k=1,similarity_profiles_table[j]:size(2) do
-	    f:write(" ",similarity_profiles_table[j][i][k])
+      f = io.open(output_debug_prefix_epoch .. '.querysims',"w")
+      for i=1,opt.validation_set_size do
+	 for k=1,query_entity_similarity_profile_tensor:size(3) do
+	    f:write(query_entity_similarity_profile_tensor[i][1][k]," ")
 	 end
-	 f:write(" ")
+	 f:write("\n")
       end
-      f:write("\n")
+      f:flush()
+      f.close()
    end
-   f:flush()
-   f.close()
-   f = io.open(output_debug_prefix .. '.cumsims',"w")
-   for i=1,opt.validation_set_size do
-      for j=1,#raw_cumulative_similarity_table do
-	 local ref_position = j+1
-	 f:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
-      end
-      f:write("\n")
-   end
-   f:flush()
-   f.close()
-   for _,node in ipairs(nodes) do
-      if node.data.annotations.name=='query_entity_similarity_profile' then
-	 query_entity_similarity_profile_tensor=node.data.module.output
-      end
-   end
-   f = io.open(output_debug_prefix .. '.querysims',"w")
-   for i=1,opt.validation_set_size do
-      for k=1,query_entity_similarity_profile_tensor:size(3) do
-	 f:write(query_entity_similarity_profile_tensor[i][1][k]," ")
-      end
-      f:write("\n")
-   end
-   f:flush()
-   f.close()
    -- debug to here
 
    -- if we are below or at the minumum number of required epochs, we
