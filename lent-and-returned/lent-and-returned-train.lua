@@ -245,7 +245,7 @@ elseif (opt.model=='entity_prediction_probe') then
 				opt.temperature,
 				opt.dropout_prob,
 				opt.use_cuda)
-else -- default is entity prediction
+elseif (opt.model=='entity_prediction') then
    model=entity_prediction(t_input_size,
 			   v_input_size,
 			   opt.multimodal_size,
