@@ -32,7 +32,7 @@ cmd:option('--save_model_to_file','', 'if a string is passed, after training has
 cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of each epoch, we print to one or more files with this prefix (and various suffixes) information that might vary depending on debugging needs (see directly code of this program to check out what it is currently being generated for debugging purposes, if anything)')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_probe)')
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_probe, entity_prediction_two_libraries)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 ---- entity_prediction parameters
@@ -237,6 +237,16 @@ elseif (opt.model=='entity_prediction_image_shared') then
 				opt.use_cuda)
 elseif (opt.model=='entity_prediction_probe') then
    model=entity_prediction_probe(t_input_size,
+				v_input_size,
+				opt.multimodal_size,
+				opt.input_sequence_cardinality,
+				opt.candidate_cardinality,
+				opt.new_cell_nonlinearity,
+				opt.temperature,
+				opt.dropout_prob,
+				opt.use_cuda)
+elseif (opt.model=='entity_prediction_two_libraries') then
+   model=entity_prediction_two_libraries(t_input_size,
 				v_input_size,
 				opt.multimodal_size,
 				opt.input_sequence_cardinality,
