@@ -133,7 +133,7 @@ image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.norma
 -- changed for debug purposes from here
 -- reading in the training data
 training_input_table,training_gold_index_list=
-   create_input_structures_from_file_1att(
+   create_input_structures_from_file_no_atts(
       opt.protocol_prefix .. ".train",
       opt.training_set_size,
       t_input_size,
@@ -143,7 +143,7 @@ training_input_table,training_gold_index_list=
 
 -- reading in the validation data
 validation_input_table,validation_gold_index_list=
-   create_input_structures_from_file_1att(
+   create_input_structures_from_file_no_atts(
       opt.protocol_prefix .. ".valid",
       opt.validation_set_size,
       t_input_size,
