@@ -129,9 +129,11 @@ print('preparing the data')
 word_embeddings,t_input_size=load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
 --reading image embeddings
 image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
+
+-- changed for debug purposes from here
 -- reading in the training data
 training_input_table,training_gold_index_list=
-   create_input_structures_from_file(
+   create_input_structures_from_file_1att(
       opt.protocol_prefix .. ".train",
       opt.training_set_size,
       t_input_size,
@@ -141,13 +143,14 @@ training_input_table,training_gold_index_list=
 
 -- reading in the validation data
 validation_input_table,validation_gold_index_list=
-   create_input_structures_from_file(
+   create_input_structures_from_file_1att(
       opt.protocol_prefix .. ".valid",
       opt.validation_set_size,
       t_input_size,
       v_input_size,
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
+-- changed for debug purposes from here
 
 if (opt.use_cuda ~=0) then
    for i=1,#validation_input_table do
