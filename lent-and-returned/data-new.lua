@@ -320,8 +320,8 @@ function create_input_structures_from_file_no_atts(i_file,data_set_size,t_in_siz
 
    -- now we traverse the trial file, expected to be in format:
    --
-   -- query_object:query_att1 gold_index || cand_img_1 ... cand_img_L || seq_att1:seq_obj1
-   -- ... seq_attM:seq:objM
+   -- query_object gold_index || cand_img_1 ... cand_img_L || seq_obj1
+   -- ... seq_objM
    -- where L is candidate_cardinality and M is input_sequence_cardinality
    local f = io.input(i_file)
    local i=1
