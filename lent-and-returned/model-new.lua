@@ -32,6 +32,33 @@ function return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,
    return nn.LogSoftMax()(dot_vector)
 end
 
+function return_entity_image_no_parameters(v_inp_size,mm_size,candidate_cardinality,dropout_p,in_table,share_table,retrieved_entity_matrix)
+   local image_candidate_vectors={}
+   -- image candidates vectors
+   for i=1,candidate_cardinality do
+      local image_candidate_vector = nn.Identity()()
+      table.insert(in_table,image_candidate_vector)
+      table.insert(image_candidate_vectors, image_candidate_vector)
+   end
+   
+   -- reshaping the table into a matrix with a candidate
+   -- vector per row
+   -- ==> second argument to JoinTable tells it that 
+   -- the expected inputs in the table are one-dimensional (the
+   -- candidate vectors), necessary not to confuse 
+   -- it when batches are passed
+   local all_candidate_values=nn.JoinTable(1,1)(image_candidate_vectors)
+   -- again, note setNumInputDims for
+   -- taking the dot product of each candidate vector
+   -- with the retrieved_entity vector
+   local candidate_matrix=nn.View(#image_candidate_vectors,-1):setNumInputDims(1)(all_candidate_values)
+   local dot_vector_split=nn.MM(false,true)({retrieved_entity_matrix,candidate_matrix})
+   local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
+                                                                           -- processing
+   return nn.LogSoftMax()(dot_vector)
+end
+
+
 function return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,in_table,imageMappings_table,retrieved_entity_matrix)
    local image_candidate_vectors={}
    -- image candidates vectors
@@ -561,6 +588,87 @@ function entity_prediction_direct_entity_matrix(t_inp_size,v_inp_size,mm_size,in
    return model
 
 end
+
+
+
+-- our main model in a version with no embedding matrices
+function entity_prediction_no_parameters(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda)
+
+   local inputs = {}
+
+
+   -- first, we process the query, storing it directly into the entity matrix
+
+   -- the first attribute in the query
+   local query_attribute_1 = nn.Identity()()
+   table.insert(inputs,query_attribute_1)
+   -- the second attribute in the query
+   local query_attribute_2 = nn.Identity()()
+   table.insert(inputs,query_attribute_2)
+   -- the object name in the query
+   local query_object = nn.Identity()()
+   table.insert(inputs,query_object)
+
+   -- putting together the multimodal query vector by summing the read
+   -- vectors, and ensuring the result will be a column vector
+   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
+
+   -- now we process the object tokens
+
+   -- a table to store the entity matrix
+   local entity_matrix_table = {}
+
+   -- now we process all the other object tokens in a loop
+   for i=1,inp_seq_cardinality do
+      -- processing the attribute
+      local token_attribute = nn.Identity()()
+      table.insert(inputs,token_attribute)
+      -- processing the object image
+      local token_object = nn.Identity()()
+      table.insert(inputs,token_object)
+      -- putting together attribute and object 
+      local object_token_vector_flat = nn.CAddTable()({token_attribute,token_object}):annotate{name='object_token_' .. i}
+      -- reshaping
+      local object_token_vector = nn.View(1,-1):setNumInputDims(1)(object_token_vector_flat)
+      table.insert(entity_matrix_table,object_token_vector)
+   end
+   -- end of processing input objects
+
+   -- at this point we create the entity matrix by concatenating
+   -- all vectors row-wise
+   local entity_matrix = nn.JoinTable(1,2)(entity_matrix_table)
+
+   -- at this point, we take the dot product of each row (entity)
+   -- vector in the entity matrix with the linguistic query vector, to
+   -- obtain an entity-to-query similarity profile, that we softmax
+   -- normalize (note Views needed to get right shapes, and rescaling
+   -- by temperature)
+   local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix,query}))
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
+
+   -- we now do "soft retrieval" of the entity that matches the query:
+   -- we obtain a vector that is a weighted sum of all the entity
+   -- vectors in the entity library (weights= similarity profile, such
+   -- that we will return the entity that is most similar to the
+   -- query) (we get a matrix of such vectors because of mini-batches)
+   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,entity_matrix})
+   
+   -- now we call the return_entity_image function to obtain a softmax
+   -- over candidate images
+   local output_distribution=return_entity_image_no_parameters(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,shareList,retrieved_entity_matrix)
+   
+   -- wrapping up the model
+   local model = nn.gModule(inputs,{output_distribution})
+   
+   -- following code is adapted from MeMNN 
+   if (use_cuda ~= 0) then
+      model:cuda()
+   end
+   return model
+
+end
+
 
 -- our main model with two entity matrices, one used to track and
 -- query entities, the other to produce a probe to query the output
