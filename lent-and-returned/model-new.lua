@@ -590,7 +590,6 @@ function entity_prediction_direct_entity_matrix(t_inp_size,v_inp_size,mm_size,in
 end
 
 
--- PASTED FROM HERE
 
 -- our main model in a version with no backprop through time
 -- inputs are projected onto a matrix directly, all image parameters are shared
@@ -715,7 +714,7 @@ function entity_prediction_direct_entity_matrix_shared(t_inp_size,v_inp_size,mm_
    return model
 
 end
--- PASTED TO HERE
+
 
 -- our main model in a version with no backprop through time
 -- inputs are projected onto a matrix directly, all image parameters are shared (assumes query is actually in image space as well)
