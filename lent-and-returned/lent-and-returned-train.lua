@@ -32,7 +32,7 @@ cmd:option('--save_model_to_file','', 'if a string is passed, after training has
 cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of each epoch, we print to one or more files with this prefix (and various suffixes) information that might vary depending on debugging needs (see directly code of this program to check out what it is currently being generated for debugging purposes, if anything)')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters)')
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 ---- entity_prediction parameters
@@ -133,7 +133,7 @@ image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.norma
 -- changed for debug purposes from here
 -- reading in the training data
 training_input_table,training_gold_index_list=
-   create_input_structures_from_file_no_atts(
+   create_input_structures_from_file_1att(
       opt.protocol_prefix .. ".train",
       opt.training_set_size,
       t_input_size,
@@ -143,14 +143,14 @@ training_input_table,training_gold_index_list=
 
 -- reading in the validation data
 validation_input_table,validation_gold_index_list=
-   create_input_structures_from_file_no_atts(
+   create_input_structures_from_file_1att(
       opt.protocol_prefix .. ".valid",
       opt.validation_set_size,
       t_input_size,
       v_input_size,
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
--- changed for debug purposes from here
+-- changed for debug purposes to here
 
 if (opt.use_cuda ~=0) then
    for i=1,#validation_input_table do
@@ -230,6 +230,16 @@ elseif (opt.model=='entity_prediction_bias') then
 				opt.use_cuda)
 elseif (opt.model=='entity_prediction_image_shared') then
    model=entity_prediction_image_shared(t_input_size,
+				v_input_size,
+				opt.multimodal_size,
+				opt.input_sequence_cardinality,
+				opt.candidate_cardinality,
+				opt.new_cell_nonlinearity,
+				opt.temperature,
+				opt.dropout_prob,
+				opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared') then
+   model=entity_prediction_image_att_shared(t_input_size,
 				v_input_size,
 				opt.multimodal_size,
 				opt.input_sequence_cardinality,
