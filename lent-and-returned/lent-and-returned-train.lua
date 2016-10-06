@@ -486,6 +486,15 @@ while (continue_training==1) do
 
    -- debug from here
    if output_debug_prefix then
+      local nodes = model:listModules()[1]['forwardnodes']
+
+      for _,node in ipairs(nodes) do
+	 if node.data.annotations.name=='raw_new_entity_mass_2' then
+	    print('new mass bias is ' .. node.data.module.bias[1])
+	    print('new mass weight is ' .. node.data.module.weight[1][1])
+	 end
+      end
+
       local output_debug_prefix_epoch = output_debug_prefix .. epoch_counter
       print("writing further information in one or more files with prefix " .. output_debug_prefix_epoch)
 
