@@ -36,7 +36,7 @@ cmd:option('--model','entity_prediction','name of model to be used (currently su
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 ---- entity_prediction parameters
-cmd:option('--new_mass_aggregation_method','sum','when computing the new entity mass cell, use as input sum (default) or mean of values in similarity profile')
+cmd:option('--new_mass_aggregation_method','sum','when computing the new entity mass cell, use as input sum (default), max or mean of values in similarity profile')
 cmd:option('--new_cell_nonlinearity','none','nonlinear transformation of mapping to predict new cell (options: none (default), sigmoid, relu, tanh)')
 cmd:option('--temperature',1,'before transforming the vector of dot products of the query with the object tokens into a softmax, multiply by temperature: the larger the temperature, the more skewed the probability distribution produced by the softmax (default: no rescaling)')
 ---- ff and rnn parameters
