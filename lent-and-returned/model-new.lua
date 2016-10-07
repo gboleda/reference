@@ -1602,6 +1602,8 @@ function entity_prediction_image_shared(t_inp_size,v_inp_size,mm_size,inp_seq_ca
       local raw_cumulative_similarity=nil
       if (opt.new_mass_aggregation_method=='mean') then
 	 raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
+      elseif (opt.new_mass_aggregation_method=='max') then
+	 raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
       else -- sum by default
 	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
