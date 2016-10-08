@@ -48,9 +48,11 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 
    -- for the query, we need 3 tensors, two for the attributes, one
    -- for the object name: each of them is data_set_size x t_in_size
-   local query_att1_list = torch.Tensor(data_set_size,t_in_size)
-   local query_att2_list = torch.Tensor(data_set_size,t_in_size)
-   local query_object_list = torch.Tensor(data_set_size,t_in_size)
+   -- here and below, we initialize the tensors to 0, so if an item is
+   -- missing, we will simply use the 0 vector as its representation
+   local query_att1_list = torch.Tensor(data_set_size,t_in_size):fill(0)
+   local query_att2_list = torch.Tensor(data_set_size,t_in_size):fill(0)
+   local query_object_list = torch.Tensor(data_set_size,t_in_size):fill(0)
 
    -- input_sequence_list is an 2*input_sequence_cardinality table of
    -- alternating data_set_size x t_in_size and data_set_size x
@@ -63,8 +65,8 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
    -- lists
    local input_sequence_list={}
    for i=1,input_sequence_cardinality do
-      table.insert(input_sequence_list,torch.Tensor(data_set_size,t_in_size))
-      table.insert(input_sequence_list,torch.Tensor(data_set_size,v_in_size))
+      table.insert(input_sequence_list,torch.Tensor(data_set_size,t_in_size):fill(0))
+      table.insert(input_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
    end
 
    -- output_sequence_list is a candidate_cardinality table of
@@ -72,7 +74,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
    -- model will have to choose from
    local output_sequence_list={}
    for i=1,candidate_cardinality do
-       table.insert(output_sequence_list,torch.Tensor(data_set_size,v_in_size))
+      table.insert(output_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
    end
 
    
@@ -90,6 +92,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
    -- where L is candidate_cardinality and M is input_sequence_cardinality
    local f = io.input(i_file)
    local i=1
+   local missing_embedding_flag=0
    while true do
       local lines, rest = f:read(BUFSIZE, "*line")
       if not lines then break end
@@ -100,12 +103,23 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	 -- leading and trailing space, and load all data onto a table
 	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
 	 -- query will contain object, att1, att2, lets retrieve their
-	 -- word embeddings
+	 -- word embeddings, if any
 	 local query=current_data[1]:split(":")
-	 query_object_list[i]=word_embeddings[query[1]]
-	 query_att1_list[i]=word_embeddings[query[2]]
+	 if (word_embeddings[query[1]]~=nil) then
+	    query_object_list[i]=word_embeddings[query[1]]
+	 else
+	    missing_embedding_flag=1
+	 end
+	 if (word_embeddings[query[2]]~=nil) then
+	    query_att1_list[i]=word_embeddings[query[2]]
+	 else
+	    missing_embedding_flag=1
+	 end
+	 if (word_embeddings[query[3]]~=nil) then
 	 query_att2_list[i]=word_embeddings[query[3]]
-
+	 else
+	    missing_embedding_flag=1
+	 end
 	 -- append gold index to corresponding list
 	 gold_index_list[i]=current_data[2]
 
@@ -115,9 +129,12 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	 for j=4,candidate_cardinality+3 do
 	    local candidate_image=current_data[j]
 	    tensor_counter = tensor_counter + 1
-	    output_sequence_list[tensor_counter][i]=image_embeddings[candidate_image]
+	    if (image_embeddings[candidate_image]~=nil) then
+	       output_sequence_list[tensor_counter][i]=image_embeddings[candidate_image]
+	    else
+	       missing_embedding_flag=1
+	    end
 	 end
-
 
 	 -- skipping another pingie pingie in position candidate_cardinality+4
 	 
@@ -130,14 +147,26 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	    -- object token contains attr, object
 	    local object_token=current_data[j]:split(":")
 	    tensor_counter = tensor_counter + 1
-	    input_sequence_list[tensor_counter][i]=word_embeddings[object_token[1]]
+	    if (word_embeddings[object_token[1]]~=nil) then
+	       input_sequence_list[tensor_counter][i]=word_embeddings[object_token[1]]
+	    else
+	       missing_embedding_flag=1
+	    end
 	    tensor_counter = tensor_counter + 1
-	    input_sequence_list[tensor_counter][i]=image_embeddings[object_token[2]]
+	    if (word_embeddings[object_token[2]]~=nil) then
+	       input_sequence_list[tensor_counter][i]=image_embeddings[object_token[2]]
+	    else
+	       missing_embedding_flag=1
+	    end
 	 end
 	 i=i+1
       end
    end
    f.close()
+
+   if (missing_embedding_flag==1) then
+      print('not all items had an entry in the embeddings tables')
+   end
 
    table.insert(output_table,query_att1_list)
    table.insert(output_table,query_att2_list)
@@ -152,7 +181,7 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 end
 
 
--- DEBUG FROM HERE TO END OF FILE
+-- DEPRECATED FROM HERE TO END OF FILE
 
 -- debug 1: create_input_structures_from_file_1att
 -- version that expects only one attribute
