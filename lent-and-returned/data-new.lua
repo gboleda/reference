@@ -109,16 +109,25 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	    query_object_list[i]=word_embeddings[query[1]]
 	 else
 	    missing_embedding_flag=1
+	    -- debug
+--	    print('missing embedding for item query 1 ' .. query[1])
+	    -- debug
 	 end
 	 if (word_embeddings[query[2]]~=nil) then
 	    query_att1_list[i]=word_embeddings[query[2]]
 	 else
 	    missing_embedding_flag=1
+	    -- debug
+--	    print('missing embedding for item query 2 ' .. query[2])
+	    -- debug
 	 end
 	 if (word_embeddings[query[3]]~=nil) then
-	 query_att2_list[i]=word_embeddings[query[3]]
+	    query_att2_list[i]=word_embeddings[query[3]]
 	 else
 	    missing_embedding_flag=1
+	    -- debug
+--	    print('missing embedding for item query 3 ' .. query[3])
+	    -- debug
 	 end
 	 -- append gold index to corresponding list
 	 gold_index_list[i]=current_data[2]
@@ -133,6 +142,9 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	       output_sequence_list[tensor_counter][i]=image_embeddings[candidate_image]
 	    else
 	       missing_embedding_flag=1
+	       -- debug
+--	       print('missing embedding for item candidate_image' .. candidate_image)
+	       -- debug
 	    end
 	 end
 
@@ -151,12 +163,18 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
 	       input_sequence_list[tensor_counter][i]=word_embeddings[object_token[1]]
 	    else
 	       missing_embedding_flag=1
+	       -- debug
+--	       print('missing embedding for item object_token 1 ' .. object_token[1])
+	       -- debug
 	    end
 	    tensor_counter = tensor_counter + 1
-	    if (word_embeddings[object_token[2]]~=nil) then
+	    if (image_embeddings[object_token[2]]~=nil) then
 	       input_sequence_list[tensor_counter][i]=image_embeddings[object_token[2]]
 	    else
 	       missing_embedding_flag=1
+	       -- debug
+--	       print('missing embedding for item object_token 2 ' .. object_token[2])
+	       -- debug
 	    end
 	 end
 	 i=i+1
