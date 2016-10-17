@@ -22,6 +22,7 @@ while (<>) {
     while ($#new_exposures<($new_exposures_count-1)) {
 	push @new_exposures,"NA:NA";
     }
+    print join ("\t",@F),"\t";
     print join "\t",(random_permutation(@new_exposures)),"\n";
 }
 
