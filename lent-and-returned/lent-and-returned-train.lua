@@ -22,7 +22,7 @@ cmd:option('--protocol_prefix','','prefix for protocol files. Expects files PREF
 cmd:option('--word_embedding_file','','word embedding file (with word vectors; first field word, rest of the fields vector values)')
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
-cmd:option('--input_sequence_cardinality', 0, 'number of object tokens in a sequence')
+cmd:option('--input_sequence_cardinality', 0, 'number of object tokens (exposures) in a sequence')
 cmd:option('--candidate_cardinality', 0, 'number of images in the output set to pick from')
 cmd:option('--training_set_size',0, 'training set size')
 cmd:option('--validation_set_size',0, 'validation set size')
@@ -117,7 +117,8 @@ dofile('model-new.lua')
 
 print('reading the data processing file')
 --dofile('data.lua')
-dofile('data-new.lua')
+--dofile('data-new.lua')
+dofile('data-less-RAM.lua')
 
 -- ****** input data reading ******
 
