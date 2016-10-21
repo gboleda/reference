@@ -48,9 +48,7 @@ end
 -- the corresponding input data: words vs images), as well as a nx1
 -- tensor with the gold indices (gold_index_list)
 
--- checker:get:configure	2	||	socket_377548	checker_463929	checker_464172	socket_377630	checker_463879	socket_378359	||	include:socket_378359	get:socket_378359	get:checker_463929	get:socket_377630	configure:socket_377548	include:checker_463879	get:checker_463879	configure:socket_377630	configure:checker_463929	include:checker_464172	include:socket_377548	configure:checker_464172
-
-function create_input_structures_from_fileNEW(i_file,data_set_size,t_in_size,v_in_size,input_sequence_cardinality,candidate_cardinality)
+function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardinality,candidate_cardinality)
    print('reading protocol file ' .. i_file)
 
    -- initializing the data structures to hold the data
@@ -66,19 +64,16 @@ function create_input_structures_from_fileNEW(i_file,data_set_size,t_in_size,v_i
    local query_object_list = {}
 
    -- input_sequence_list is an 2*input_sequence_cardinality table of
-   -- alternating data_set_size x t_in_size and data_set_size x
-   -- v_in_size tensors: the odd tensors will contain attribute
-   -- representations, the even slots will contain image
-   -- representations, with each pair of consecutive tensors standing
-   -- for an object token (pairs ordered as the object tokens in the
-   -- corresponding stimulus); the entries in the input_sequence_list
-   -- table are aligned with the order of the queries in the query
-   -- lists
-   -- GBT: This looks very weird to me, should we really keep the same structure? Why alternating? Not touching it for the moment
+   -- alternating tables: the odd table will contain attributes, the
+   -- even slots will contain image names, with each pair of
+   -- consecutive tables standing for an object token (pairs ordered
+   -- as the object tokens in the corresponding stimulus); the entries
+   -- in the input_sequence_list table are aligned with the order of
+   -- the queries in the query lists
    local input_sequence_list={}
    for i=1,input_sequence_cardinality do
-      table.insert(input_sequence_list,torch.Tensor(data_set_size,t_in_size):fill(0))
-      table.insert(input_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
+      table.insert(input_sequence_list,{})
+      table.insert(input_sequence_list,{})
    end
 
    -- output_sequence_list is a table with candidate_cardinality
@@ -103,7 +98,6 @@ function create_input_structures_from_fileNEW(i_file,data_set_size,t_in_size,v_i
    -- where L is candidate_cardinality and M is input_sequence_cardinality
    local f = io.input(i_file)
    local i=1
-   local missing_embedding_flag=0
    while true do
       local lines, rest = f:read(BUFSIZE, "*line")
       if not lines then break end
@@ -121,52 +115,33 @@ function create_input_structures_from_fileNEW(i_file,data_set_size,t_in_size,v_i
 	 -- append gold index to corresponding list
 	 gold_index_list[i]=current_data[2]
 
-	 -- we ignore current_data[3] as it's a pingie-pingie and move on to the following
-	 -- sequence of candidate images
+	 -- we ignore current_data[3] as it's a pingie-pingie (inlove)
+	 -- and move on to the following sequence of candidate images
 	 local table_counter = 0
 	 for j=4,candidate_cardinality+3 do
 	    table_counter = table_counter + 1
-	    output_sequence_list[table_counter]=current_data[j] -- the candidate image
+	    table.insert(output_sequence_list[table_counter],current_data[j]) -- the candidate image
 	 end
 
 	 -- skipping another pingie pingie in position candidate_cardinality+4
 	 
-	 -- finally, we update each tensor in input_sequence_list with
-	 -- alternating word att and image object embeddings
-	 -- GBT: Leaving this as is for the moment, since I'm not clear why we need to do it like this and whether we can keep it with the new (table) structure
-	 tensor_counter = 0
+	 -- finally, we update each table in input_sequence_list with
+	 -- alternating word att and image object names
+	 table_counter = 0
  	 local start_at = candidate_cardinality+5
 	 local end_at = start_at+input_sequence_cardinality-1
 	 for j=start_at,end_at do
 	    -- object token contains attr, object
 	    local object_token=current_data[j]:split(":")
-	    tensor_counter = tensor_counter + 1
-	    if (word_embeddings[object_token[1]]~=nil) then
-	       input_sequence_list[tensor_counter][i]=word_embeddings[object_token[1]]
-	    else
-	       missing_embedding_flag=1
-	       -- debug
---	       print('missing embedding for item object_token 1 ' .. object_token[1])
-	       -- debug
-	    end
-	    tensor_counter = tensor_counter + 1
-	    if (image_embeddings[object_token[2]]~=nil) then
-	       input_sequence_list[tensor_counter][i]=image_embeddings[object_token[2]]
-	    else
-	       missing_embedding_flag=1
-	       -- debug
---	       print('missing embedding for item object_token 2 ' .. object_token[2])
-	       -- debug
-	    end
+	    table_counter = table_counter + 1
+	    input_sequence_list[table_counter][i]=object_token[1]
+	    table_counter = table_counter + 1
+	    input_sequence_list[table_counter][i]=object_token[2]
 	 end
 	 i=i+1
       end
    end
    f.close()
-
-   if (missing_embedding_flag==1) then
-      print('not all items had an entry in the embeddings tables')
-   end
 
    table.insert(output_table,query_att1_list)
    table.insert(output_table,query_att2_list)
@@ -181,17 +156,13 @@ function create_input_structures_from_fileNEW(i_file,data_set_size,t_in_size,v_i
 end
 
 
-
-
 -- OLD (MEMORY-HUNGRY) VERSION
 -- returns output_table, containing a set of n x embeddings_dim tensors
 -- each of which has the data for one input trial per row (n is the
 -- number of trials, embeddings_dim changes depending on the nature of
 -- the corresponding input data: words vs images), as well as a nx1
 -- tensor with the gold indices
-function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_size,input_sequence_cardinality,candidate_cardinality)
-   print('reading protocol file ' .. i_file)
-
+function create_input_structures_from_table(data_tables,full_gold_index_tensor,target_indices,data_set_size,t_in_size,v_in_size,input_sequence_cardinality,candidate_cardinality)
    -- initializing the data structures to hold the data
    local output_table = {} -- to put data tensors in (will be model input)
 
@@ -234,21 +205,29 @@ function create_input_structures_from_file(i_file,data_set_size,t_in_size,v_in_s
    -- output_sequence_list
    local gold_index_list = torch.Tensor(data_set_size)
 
-   -- now we traverse the trial file, expected to be in format:
-   --
-   -- query_object:query_att1:query_att2 gold_index || cand_img_1 ... cand_img_L || seq_att1:seq_obj1
-   -- ... seq_attM:seq:objM
-   -- where L is candidate_cardinality and M is input_sequence_cardinality
-   local f = io.input(i_file)
-   local i=1
+
+   
+   -- now we traverse the indices populating the various tables with
+   -- the corresponding contents
    local missing_embedding_flag=0
-   while true do
-      local lines, rest = f:read(BUFSIZE, "*line")
-      if not lines then break end
-      if rest then lines = lines .. rest .. '\n' end
-      -- traversing current chunk line by line
-      for current_line in lines:gmatch("[^\n]+") do
-	 -- the following somewhat cumbersome expression will remove
+
+   for i=1,target_indices:size()[1] do
+
+      for j
+      -- table.insert(output_table,query_att1_list)
+      
+
+      
+   -- table.insert(output_table,query_att2_list)
+   -- table.insert(output_table,query_object_list)
+   -- for j=1,(input_sequence_cardinality*2) do
+   --    table.insert(output_table,input_sequence_list[j])
+   -- end
+   -- for j=1,candidate_cardinality do
+   --    table.insert(output_table,output_sequence_list[j])
+
+      
+      
 	 -- leading and trailing space, and load all data onto a table
 	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
 	 -- query will contain object, att1, att2, lets retrieve their

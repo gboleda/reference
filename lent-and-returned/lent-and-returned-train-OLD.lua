@@ -134,21 +134,23 @@ image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.norma
 
 -- reading in the training data
 training_input_table,training_gold_index_list=
-   create_data_tables_from_file(
+   create_input_structures_from_file(
       opt.protocol_prefix .. ".train",
       opt.training_set_size,
+      t_input_size,
+      v_input_size,
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
 
 -- reading in the validation data
 validation_input_table,validation_gold_index_list=
-   create_data_tables_from_file(
+   create_input_structures_from_file(
       opt.protocol_prefix .. ".valid",
       opt.validation_set_size,
+      t_input_size,
+      v_input_size,
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
--- creating input structures for the validation data
-validation_input_representations_table,_=create_input_structures_from_table(validation_input_table,validation_gold_index_list,torch.range(1,opt.validation_set_size),opt.validation_set_size,t_input_size,v_input_size,opt.input_sequence_cardinality,opt.candidate_cardinality)
 
 if (opt.use_cuda ~=0) then
    for i=1,#validation_input_table do
@@ -384,6 +386,7 @@ feval = function(x)
    local batch_gold_index_list = nil
    for j=1,#training_input_table do
       if (opt.use_cuda ~= 0) then
+	 -- remember the missing embedding flag
 	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices):cuda())
       else
 	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
@@ -461,14 +464,16 @@ while (continue_training==1) do
 
    -- getting a shuffled index through the training data,
    -- so that they are processed in a different order at each epoch
-   local shuffle = torch.randperm(opt.training_set_size)
+   local shuffle = torch.randperm(opt.training_set_size):long()
+   -- note that shuffle has to be LongTensor for compatibility
+   -- with the index function used below
    model:training() -- for dropout; make sure we are in training mode
+
 
    -- we now start reading batches
    local batch_begin_index = 1
-   local current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
    while ((batch_begin_index+opt.mini_batch_size-1)<=opt.training_set_size) do
-      batch_input_representations_table,batch_gold_index_tensor=create_input_structures_from_table(training_input_table,training-gold_index_list,current_batch_indices,opt.mini_batch_size,t_input_size,v_input_size,opt.input_sequence_cardinality,opt.candidate_cardinality)
+      current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
       local losses={}
       if (opt.optimization_method=="sgd") then
 	 _,losses = optim.sgd(feval,model_weights,optimization_parameters)
