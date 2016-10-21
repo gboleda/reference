@@ -204,61 +204,57 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    -- query) in the corresponding sequence of tensors in
    -- output_sequence_list
    local gold_index_list = torch.Tensor(data_set_size)
-
-
    
    -- now we traverse the indices populating the various tables with
    -- the corresponding contents
    local missing_embedding_flag=0
 
+   local j=0
    for i=1,target_indices:size()[1] do
-
-      for j
-      -- table.insert(output_table,query_att1_list)
-      
-
-      
-   -- table.insert(output_table,query_att2_list)
-   -- table.insert(output_table,query_object_list)
-   -- for j=1,(input_sequence_cardinality*2) do
-   --    table.insert(output_table,input_sequence_list[j])
-   -- end
-   -- for j=1,candidate_cardinality do
-   --    table.insert(output_table,output_sequence_list[j])
-
-      
-      
-	 -- leading and trailing space, and load all data onto a table
-	 local current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
-	 -- query will contain object, att1, att2, lets retrieve their
-	 -- word embeddings, if any
-	 local query=current_data[1]:split(":")
-	 if (word_embeddings[query[1]]~=nil) then
-	    query_object_list[i]=word_embeddings[query[1]]
+      local current_index=target_indices[i]
+      j=j+1
+      -- first we get the query att 1/2 and object tables
+      if (word_embeddings[data_tables[1][current_index]]~=nil) then
+	 query_att1_list[j]=word_embeddings[data_tables[1][current_index]]
+      else
+	 missing_embedding_flag=1
+      end
+      if (word_embeddings[data_tables[2][current_index]]~=nil) then
+	 query_att2_list[j]=word_embeddings[data_tables[2][current_index]]
+      else
+	 missing_embedding_flag=1
+      end
+      if (word_embeddings[data_tables[3][current_index]]~=nil) then
+	 query_object_list[j]=word_embeddings[data_tables[3][current_index]]
+      else
+	 missing_embedding_flag=1
+      end
+      -- now we read the input tokens, that will be in and alternating word attribute
+      -- and image object sequence
+      local k=4 -- counter to go through the input table of tables
+      while (k<=(input_sequence_cardinality*2)+3) do
+	 if (word_embeddings[data_tables[k][current_index]]~=nil) then
+	    input_sequence_list[k-3][j]=
+	       word_embeddings[data_tables[k][current_index]]
 	 else
 	    missing_embedding_flag=1
-	    -- debug
---	    print('missing embedding for item query 1 ' .. query[1])
-	    -- debug
 	 end
-	 if (word_embeddings[query[2]]~=nil) then
-	    query_att1_list[i]=word_embeddings[query[2]]
+	 k=k+1
+	 if (image_embeddings[data_tables[k][current_index]]~=nil) then
+	    input_sequence_list[k-3][j]=
+	       image_embeddings[data_tables[k][current_index]]
 	 else
 	    missing_embedding_flag=1
-	    -- debug
---	    print('missing embedding for item query 2 ' .. query[2])
-	    -- debug
 	 end
-	 if (word_embeddings[query[3]]~=nil) then
-	    query_att2_list[i]=word_embeddings[query[3]]
-	 else
-	    missing_embedding_flag=1
-	    -- debug
---	    print('missing embedding for item query 3 ' .. query[3])
-	    -- debug
-	 end
-	 -- append gold index to corresponding list
-	 gold_index_list[i]=current_data[2]
+	 k=k+1
+      end
+
+      -- now processing the candidates
+      -- k should point to the first candidate table
+      for k=k,candidate_cardinality+k-1 do
+	 -- WE ARE HERE, CHECK ITERATOR ABOVE
+      end
+      
 
 	 -- we ignore current_data[3] as it's a pingie-pingie and move on to the following
 	 -- sequence of candidate images
@@ -276,39 +272,7 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
 	    end
 	 end
 
-	 -- skipping another pingie pingie in position candidate_cardinality+4
-	 
-	 -- finally, we update each tensor in input_sequence_list with
-	 -- alternating word att and image object embeddings
-	 tensor_counter = 0
-	 local start_at = candidate_cardinality+5
-	 local end_at = start_at+input_sequence_cardinality-1
-	 for j=start_at,end_at do
-	    -- object token contains attr, object
-	    local object_token=current_data[j]:split(":")
-	    tensor_counter = tensor_counter + 1
-	    if (word_embeddings[object_token[1]]~=nil) then
-	       input_sequence_list[tensor_counter][i]=word_embeddings[object_token[1]]
-	    else
-	       missing_embedding_flag=1
-	       -- debug
---	       print('missing embedding for item object_token 1 ' .. object_token[1])
-	       -- debug
-	    end
-	    tensor_counter = tensor_counter + 1
-	    if (image_embeddings[object_token[2]]~=nil) then
-	       input_sequence_list[tensor_counter][i]=image_embeddings[object_token[2]]
-	    else
-	       missing_embedding_flag=1
-	       -- debug
---	       print('missing embedding for item object_token 2 ' .. object_token[2])
-	       -- debug
-	    end
-	 end
-	 i=i+1
-      end
-   end
-   f.close()
+
 
    if (missing_embedding_flag==1) then
       print('not all items had an entry in the embeddings tables')
