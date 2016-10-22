@@ -148,18 +148,17 @@ validation_input_table,validation_gold_index_list=
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
 -- creating input structures for the validation data
-validation_input_representations_table,_=create_input_structures_from_table(validation_input_table,validation_gold_index_list,torch.range(1,opt.validation_set_size),opt.validation_set_size,t_input_size,v_input_size,opt.input_sequence_cardinality,opt.candidate_cardinality)
-
-if (opt.use_cuda ~=0) then
-   for i=1,#validation_input_table do
-      validation_input_table[i]=validation_input_table[i]:cuda()
-   end
-   validation_gold_index_list=validation_gold_index_list:cuda()
-end
-
--- we no longer need the embeddings, let's get rid of them
-word_embeddings=nil
-image_embeddings=nil
+validation_input_representations_table,_=
+   create_input_structures_from_table(
+      validation_input_table,
+      validation_gold_index_list,
+      torch.range(1,opt.validation_set_size),
+      opt.validation_set_size,
+      t_input_size,
+      v_input_size,
+      opt.input_sequence_cardinality,
+      opt.candidate_cardinality,
+      opt.use_cuda)
 
 -- ******* initializations *******
 
@@ -378,31 +377,16 @@ feval = function(x)
    -- reset gradients
    model_weight_gradients:zero()
 
-   -- in the following we assume there is a current_batch_indices tensor telling
-   -- us which samples are in current batch
-   local batch_input_table={}
-   local batch_gold_index_list = nil
-   for j=1,#training_input_table do
-      if (opt.use_cuda ~= 0) then
-	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices):cuda())
-      else
-	 table.insert(batch_input_table,training_input_table[j]:index(1,current_batch_indices))
-      end
-   end
-   if (opt.use_cuda ~= 0) then
-      batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices):cuda()
-   else
-      batch_gold_index_list=training_gold_index_list:index(1,current_batch_indices)
-   end
+   -- we assume existence of global batch_input_representations_table and batch_gold_index_tensor
 
    -- take forward pass for current training batch
-   local model_prediction=model:forward(batch_input_table)
+   local model_prediction=model:forward(batch_input_representations_table)
 
-   local loss = criterion:forward(model_prediction,batch_gold_index_list)
+   local loss = criterion:forward(model_prediction,batch_gold_index_tensor)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
-   local loss_gradient = criterion:backward(model_prediction,batch_gold_index_list)
-   model:backward(batch_input_table,loss_gradient)
+   local loss_gradient = criterion:backward(model_prediction,batch_gold_index_tensor)
+   model:backward(batch_input_representations_table,loss_gradient)
 
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
@@ -468,7 +452,17 @@ while (continue_training==1) do
    local batch_begin_index = 1
    local current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
    while ((batch_begin_index+opt.mini_batch_size-1)<=opt.training_set_size) do
-      batch_input_representations_table,batch_gold_index_tensor=create_input_structures_from_table(training_input_table,training-gold_index_list,current_batch_indices,opt.mini_batch_size,t_input_size,v_input_size,opt.input_sequence_cardinality,opt.candidate_cardinality)
+      batch_input_representations_table,batch_gold_index_tensor=
+	 create_input_structures_from_table(training_input_table,
+					    training_gold_index_list,
+					    current_batch_indices,
+					    opt.mini_batch_size,
+					    t_input_size,
+					    v_input_size,
+					    opt.input_sequence_cardinality,
+					    opt.candidate_cardinality,
+					    opt.use_cuda)
+
       local losses={}
       if (opt.optimization_method=="sgd") then
 	 _,losses = optim.sgd(feval,model_weights,optimization_parameters)
@@ -487,7 +481,7 @@ while (continue_training==1) do
 
    -- validation
    model:evaluate() -- for dropout; get into evaluation mode (all weights used)
-   local validation_loss,validation_accuracy=test(validation_input_table,validation_gold_index_list)
+   local validation_loss,validation_accuracy=test(validation_input_representations_table,validation_gold_index_list)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
 
