@@ -395,7 +395,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 
    local valid_batch_begin_index = 1
    local cumulative_loss = 0
-   local cumulative_accuracy = 0
+   local hit_count=0
 
    -- reading the validation data batch by batch
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
@@ -424,19 +424,15 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- we then count how often these guesses are the same as the gold
       -- note conversions to long if we're not using cuda as only tensor
       -- type
-      local hit_count=0
       if (opt.use_cuda~=0) then
 	 hit_count=torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
       else
 	 hit_count=torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
       end
-      -- normalizing accuracy by batch size
-      cumulative_accuracy=cumulative_accuracy+(hit_count/valid_batch_size)
-
       valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
    end
    local average_loss=cumulative_loss/number_of_valid_batches
-   local accuracy=cumulative_accuracy/number_of_valid_batches
+   local accuracy=hit_count/(number_of_valid_batches*valid_batch_size)
    return average_loss,accuracy
 end
 
