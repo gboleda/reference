@@ -109,6 +109,14 @@ if (left_out_training_samples_size>0) then
    print('since training set size is not a multiple of mini batch size, in each epoch we will exclude ' .. left_out_training_samples_size .. ' random training samples')
 end
 
+-- for validation, we use the same batch size
+local number_of_valid_batches=math.floor(opt.validation_set_size/opt.mini_batch_size)
+local left_out_valid_samples_size=opt.validation_set_size-(number_of_valid_batches*opt.mini_batch_size)
+if (left_out_valid_samples_size>0) then
+   print('since validation set size is not a multiple of validation mini batch size, we will exclude ' .. left_out_valid_samples_size .. ' validation samples')
+end
+
+
 -- ****** loading models, data handling functions ******
 
 print('reading the models file')
@@ -147,18 +155,6 @@ validation_input_table,validation_gold_index_list=
       opt.validation_set_size,
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
--- creating input structures for the validation data
-validation_input_representations_table,_=
-   create_input_structures_from_table(
-      validation_input_table,
-      validation_gold_index_list,
-      torch.range(1,opt.validation_set_size),
-      opt.validation_set_size,
-      t_input_size,
-      v_input_size,
-      opt.input_sequence_cardinality,
-      opt.candidate_cardinality,
-      opt.use_cuda)
 
 -- ******* initializations *******
 
@@ -395,31 +391,52 @@ end
 
 
 -- ******* validation function *******
-function test(input_table,gold_index_list)
+function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batches,valid_set_size)
 
-   -- passing all test samples through the trained network
-   local model_prediction=model:forward(input_table)
+   local valid_batch_begin_index = 1
+   local cumulative_loss = 0
+   local cumulative_accuracy = 0
 
-   -- compute loss
-   -- NB: according to documentation, the criterion function already normalizes loss!
-   local average_loss = criterion:forward(model_prediction,gold_index_list)
+   -- reading the validation data batch by batch
+   while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
+      batch_valid_input_representations_table,batch_valid_gold_index_tensor=
+	 create_input_structures_from_table(input_table,
+					    gold_index_list,
+					    torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1),
+					    valid_batch_size,
+					    t_input_size,
+					    v_input_size,
+					    opt.input_sequence_cardinality,
+					    opt.candidate_cardinality,
+					    opt.use_cuda)
 
-   -- compute accuracy
-   -- to compute accuracy, we first retrieve list of indices of image
-   -- vectors that were preferred by the model
-   local _,model_guesses_indices=torch.max(model_prediction,2)
-   -- we then count how often these guesses are the same as the gold
-   -- note conversions to long if we're not using cuda as only tensor
-   -- type
-   local hit_count=0
-   if (opt.use_cuda~=0) then
-      hit_count=torch.sum(torch.eq(gold_index_list:type('torch.CudaLongTensor'),model_guesses_indices))
-   else
-      hit_count=torch.sum(torch.eq(gold_index_list:long(),model_guesses_indices))
+      -- passing current test samples through the trained network
+      local model_prediction=model:forward(batch_valid_input_representations_table)
+
+      -- accumulate loss
+      -- NB: according to documentation, the criterion function already normalizes loss!
+      cumulative_loss = cumulative_loss + criterion:forward(model_prediction,batch_valid_gold_index_tensor)
+
+      -- compute accuracy
+      -- to compute accuracy, we first retrieve list of indices of image
+      -- vectors that were preferred by the model
+      local _,model_guesses_indices=torch.max(model_prediction,2)
+      -- we then count how often these guesses are the same as the gold
+      -- note conversions to long if we're not using cuda as only tensor
+      -- type
+      local hit_count=0
+      if (opt.use_cuda~=0) then
+	 hit_count=torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
+      else
+	 hit_count=torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
+      end
+      -- normalizing accuracy by batch size
+      cumulative_accuracy=cumulative_accuracy+(hit_count/valid_batch_size)
+
+      valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
    end
-   -- normalizing accuracy by test/valid set size
-   local accuracy=hit_count/gold_index_list:size(1)
-
+   local average_loss=cumulative_loss/number_of_valid_batches
+   local accuracy=cumulative_accuracy/number_of_valid_batches
    return average_loss,accuracy
 end
 
@@ -481,11 +498,14 @@ while (continue_training==1) do
 
    -- validation
    model:evaluate() -- for dropout; get into evaluation mode (all weights used)
-   local validation_loss,validation_accuracy=test(validation_input_representations_table,validation_gold_index_list)
+   local validation_loss,validation_accuracy =
+      test(validation_input_table,validation_gold_index_list,opt.mini_batch_size,number_of_valid_batches,opt.validation_set_size)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
 
    -- debug from here
+   -- NB: FOR NOW THIS WILL PRODUCE FILES THAT ONLY CONTAIN INFORMATION FOR THE LAST N VALID TRIALS
+   -- WHERE N IS THE SIZE OF valid_batch
    if output_debug_prefix then
       local nodes = model:listModules()[1]['forwardnodes']
 
