@@ -432,16 +432,13 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 
       -- debug from here
       if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
+
 	 local nodes = model:listModules()[1]['forwardnodes']
 
 	 -- collect debug information
 	 local query_entity_similarity_profile_tensor = nil
 	 for _,node in ipairs(nodes) do
-	    -- gbt: why are we printing this to stdout instead of to a file?
-	    if node.data.annotations.name=='raw_new_entity_mass_2' then
-	       print('new mass bias is ' .. node.data.module.bias[1])
-	       print('new mass weight is ' .. node.data.module.weight[1][1])
-	    elseif node.data.annotations.name=='query_entity_similarity_profile' then
+	    if node.data.annotations.name=='query_entity_similarity_profile' then
 	       query_entity_similarity_profile_tensor=node.data.module.output
 	    end
 	 end
@@ -554,13 +551,23 @@ while (continue_training==1) do
 
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
 
+   -- debug information
+   local output_debug_prefix_epoch = nil
+   if output_debug_prefix then -- if output_debug_prefix is not nil, we are in debug mode
+      output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
+      print("writing further info for debugging/analysis in file(s) with prefix " .. output_debug_prefix_epoch)
+      -- this is done once per epoch:
+      local nodes = model:listModules()[1]['forwardnodes']
+      for _,node in ipairs(nodes) do
+	 if node.data.annotations.name=='raw_new_entity_mass_2' then
+	    print('new mass bias is ' .. node.data.module.bias[1])
+	    print('new mass weight is ' .. node.data.module.weight[1][1])
+	 end
+      end
+   end
+
    -- validation
    model:evaluate() -- for dropout; get into evaluation mode (all weights used)
-   local output_debug_prefix_epoch = nil
-   if output_debug_prefix then -- if output_debug_prefix is not nil
-      output_debug_prefix_epoch = output_debug_prefix .. epoch_counter
-      print("writing further information in one or more files with prefix " .. output_debug_prefix_epoch)
-   end
 
    local validation_loss,validation_accuracy =
       test(validation_input_table,validation_gold_index_list,opt.mini_batch_size,number_of_valid_batches,opt.validation_set_size,left_out_training_samples_size,output_debug_prefix_epoch)
