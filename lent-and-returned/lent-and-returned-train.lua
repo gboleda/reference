@@ -26,10 +26,13 @@ cmd:option('--input_sequence_cardinality', 0, 'number of object tokens (exposure
 cmd:option('--candidate_cardinality', 0, 'number of images in the output set to pick from')
 cmd:option('--training_set_size',0, 'training set size')
 cmd:option('--validation_set_size',0, 'validation set size')
+-- cmd:option('--test_set_size',0, 'test set size')
 
 -- options concerning output processing
 cmd:option('--save_model_to_file','', 'if a string is passed, after training has finished, the trained model is saved as binary file named like the string')
 cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of each epoch, we print to one or more files with this prefix (and various suffixes) information that might vary depending on debugging needs (see directly code of this program to check out what it is currently being generated for debugging purposes, if anything)')
+-- output files
+cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 
 -- model parameters
 cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters, entity_prediction_image_att_do_shared)')
@@ -71,12 +74,23 @@ cmd:option('--max_validation_lull',2,'number of adjacent non-improving epochs be
 -- size of a mini-batch
 cmd:option('--mini_batch_size',10,'mini batch size')
 
+-- -- testing parameters
+-- cmd:option('--test_mode',0, 'if set to 1, the test set will be evaluated; requires a binary of a model produced in training mode (the default mode)')
+-- cmd:option('--model_file','', 'name of file storing trained model')
+
+
+
 opt = cmd:parse(arg or {})
 print(opt)
 
 local output_debug_prefix=nil
 if opt.output_debug_prefix~='' then
    output_debug_prefix=opt.output_debug_prefix
+end
+
+local output_guesses_file=nil
+if opt.output_guesses_file~='' then
+   output_guesses_file=opt.output_guesses_file
 end
 
 -- ****** other general parameters ******
@@ -390,13 +404,28 @@ end
 
 
 -- ******* validation function *******
-function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batches,valid_set_size,left_out_samples,debug_file_prefix)
+function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batches,valid_set_size,left_out_samples,debug_file_prefix,guesses_file)
 
    local valid_batch_begin_index = 1
    local cumulative_loss = 0
    local cumulative_accuracy = 0
    local hit_count=0
 
+   -- preparing for debug
+   local f1=nil; local f2=nil; local f3=nil;
+   if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
+      f1 = io.open(debug_file_prefix .. '.simprofiles',"w")
+      f2 = io.open(debug_file_prefix .. '.cumsims',"w")
+      f3 = io.open(debug_file_prefix .. '.querysims',"w")
+   end
+
+   -- preparing for model guesses
+   local f4=nil
+   if guesses_file then
+      print("writing individual model predictions to file " .. guesses_file .. " (the file will be overriden every epoch)")
+      f4 = io.open(guesses_file,"w")
+   end
+   
    -- reading the validation data batch by batch
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
       batch_valid_input_representations_table,batch_valid_gold_index_tensor=
@@ -420,7 +449,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- accumulate hit counts for accuracy
       -- to compute accuracy, we first retrieve list of indices of image
       -- vectors that were preferred by the model
-      local _,model_guesses_indices=torch.max(model_prediction,2)
+      local model_guesses_probs,model_guesses_indices=torch.max(model_prediction,2)
       -- we then count how often these guesses are the same as the gold
       -- note conversions to long if we're not using cuda as only tensor
       -- type
@@ -459,9 +488,6 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	 end
 
 	 -- write debug information to files
-	 local f1 = io.open(debug_file_prefix .. '.simprofiles',"a")
-	 local f2 = io.open(debug_file_prefix .. '.cumsims',"a")
-	 local f3 = io.open(debug_file_prefix .. '.querysims',"a")
 	 for i=1,valid_batch_size do
 	    for j=1,#similarity_profiles_table do
 	       local ref_position = j+1
@@ -482,14 +508,28 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	    end
 	    f3:write("\n")
 	 end
-	 f1:flush(); f1.close()
-	 f2:flush(); f2.close()
-	 f3:flush(); f3.close()
       end
       -- debug to here
       
+      -- write model guesses and probabilities to file
+      if guesses_file then
+	 for i=1,model_guesses_probs:size(1) do
+	    f4:write(model_guesses_indices[i][1]," ",model_guesses_probs[i][1],"\n")
+	 end
+      end
+      
       valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
    end -- end while
+
+   if debug_file_prefix then
+      f1:flush(); f1.close()
+      f2:flush(); f2.close()
+      f3:flush(); f3.close()
+   end
+   if guesses_file then
+      f4:flush(); f4.close()
+   end
+   
    local average_loss=cumulative_loss/number_of_valid_batches
    local accuracy=hit_count/(valid_set_size-left_out_samples) -- we discount the samples that don't go into the batches
    return average_loss,accuracy
@@ -555,7 +595,6 @@ while (continue_training==1) do
    local output_debug_prefix_epoch = nil
    if output_debug_prefix then -- if output_debug_prefix is not nil, we are in debug mode
       output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
-      print("writing further info for debugging/analysis in file(s) with prefix " .. output_debug_prefix_epoch)
       -- this is done once per epoch:
       local nodes = model:listModules()[1]['forwardnodes']
       for _,node in ipairs(nodes) do
@@ -564,13 +603,14 @@ while (continue_training==1) do
 	    print('new mass weight is ' .. node.data.module.weight[1][1])
 	 end
       end
+      print("writing further info for debugging/analysis in file(s) with prefix " .. output_debug_prefix_epoch) -- done in test function (called below)
    end
 
    -- validation
    model:evaluate() -- for dropout; get into evaluation mode (all weights used)
 
    local validation_loss,validation_accuracy =
-      test(validation_input_table,validation_gold_index_list,opt.mini_batch_size,number_of_valid_batches,opt.validation_set_size,left_out_training_samples_size,output_debug_prefix_epoch)
+      test(validation_input_table,validation_gold_index_list,opt.mini_batch_size,number_of_valid_batches,opt.validation_set_size,left_out_training_samples_size,output_debug_prefix_epoch,output_guesses_file)
    print('validation loss: ' .. validation_loss)
    print('validation accuracy: ' .. validation_accuracy)
 
