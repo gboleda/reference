@@ -156,7 +156,6 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
 end
 
 
--- OLD (MEMORY-HUNGRY) VERSION
 -- returns output_table, containing a set of n x embeddings_dim tensors
 -- each of which has the data for one input trial per row (n is the
 -- number of trials, embeddings_dim changes depending on the nature of

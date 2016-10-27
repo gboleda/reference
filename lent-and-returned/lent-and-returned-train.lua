@@ -561,8 +561,8 @@ while (continue_training==1) do
 
    -- we now start reading batches
    local batch_begin_index = 1
-   local current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
    while ((batch_begin_index+opt.mini_batch_size-1)<=opt.training_set_size) do
+      local current_batch_indices=shuffle:narrow(1,batch_begin_index,opt.mini_batch_size)
       batch_input_representations_table,batch_gold_index_tensor=
 	 create_input_structures_from_table(training_input_table,
 					    training_gold_index_list,
