@@ -243,6 +243,7 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
 	       output_sequence_list[tensor_counter][i]=
 		  image_embeddings[data_tables[j][current_index]]
 	 end
+	 tensor_counter=tensor_counter+1
       end
 
       gold_index_list[i]=full_gold_index_tensor[current_index]
