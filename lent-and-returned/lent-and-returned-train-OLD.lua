@@ -117,8 +117,8 @@ dofile('model-new.lua')
 
 print('reading the data processing file')
 --dofile('data.lua')
---dofile('data-new.lua')
-dofile('data-less-RAM.lua')
+dofile('data-new.lua')
+--dofile('data-less-RAM.lua')
 
 -- ****** input data reading ******
 
