@@ -460,7 +460,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       end
 
       -- debug from here
-      if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
+      if debug_file_prefix and opt.model=='entity_prediction_image_att_shared' then -- debug_file_prefix will be nil if debug mode is not on
 
 	 local nodes = model:listModules()[1]['forwardnodes']
 
@@ -593,7 +593,7 @@ while (continue_training==1) do
 
    -- debug information
    local output_debug_prefix_epoch = nil
-   if output_debug_prefix then -- if output_debug_prefix is not nil, we are in debug mode
+   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' then -- if output_debug_prefix is not nil, we are in debug mode
       output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
       -- this is done once per epoch:
       local nodes = model:listModules()[1]['forwardnodes']
