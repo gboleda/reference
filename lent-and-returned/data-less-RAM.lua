@@ -156,7 +156,6 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
 end
 
 
--- OLD (MEMORY-HUNGRY) VERSION
 -- returns output_table, containing a set of n x embeddings_dim tensors
 -- each of which has the data for one input trial per row (n is the
 -- number of trials, embeddings_dim changes depending on the nature of
@@ -244,6 +243,7 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
 	       output_sequence_list[tensor_counter][i]=
 		  image_embeddings[data_tables[j][current_index]]
 	 end
+	 tensor_counter=tensor_counter+1
       end
 
       gold_index_list[i]=full_gold_index_tensor[current_index]
