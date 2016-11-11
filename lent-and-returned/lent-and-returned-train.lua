@@ -35,7 +35,7 @@ cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of 
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters, entity_prediction_image_att_do_shared)')
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, mm_one_matrix, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters, entity_prediction_image_att_do_shared)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter being dropped, i.e having its commensurate output element be zero, for models that allow a different dropout probability for attributes to avoid the perfect matching problem; default: equivalent to no dropout')
@@ -48,6 +48,7 @@ cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
 cmd:option('--ff_nonlinearity','none','nonlinear transformation of hidden layers (options: none (default), sigmoid, relu, tanh)') -- NB: despite the name, also used by rnn
 cmd:option('--summary_size',300, 'size of history vector of RNN')
+cmd:option('--nhops',1, 'number of hops for memory network models')
 
 -- training parameters
 -- optimization method: sgd or adam
@@ -133,8 +134,7 @@ end
 -- ****** loading models, data handling functions ******
 
 print('reading the models file')
---dofile('model.lua')
-dofile('model-new.lua')
+dofile('model.lua')
 
 print('reading the data processing file')
 --dofile('data.lua')
@@ -224,6 +224,17 @@ elseif (opt.model=='rnn') then
 	     opt.ff_nonlinearity,
 	     opt.dropout_prob,
 	     opt.use_cuda)
+elseif (opt.model=='mm_one_matrix') then
+   model=mm_one_matrix(t_input_size,
+		       v_input_size,
+		       opt.multimodal_size,
+		       opt.input_sequence_cardinality,
+		       opt.candidate_cardinality,
+		       opt.new_cell_nonlinearity,
+		       opt.nhops,
+		       opt.temperature,
+		       opt.dropout_prob,
+		       opt.use_cuda)
 elseif (opt.model=='entity_prediction_bias') then
    model=entity_prediction_bias(t_input_size,
 				v_input_size,
