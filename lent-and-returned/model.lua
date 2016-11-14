@@ -96,9 +96,8 @@ function mm_one_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candida
    local query_object = nn.LinearNB(t_inp_size, mm_size)(query_object_do):annotate{name='query_object'}
 
    -- putting together the multimodal query vector by summing the
-   -- output of the previous linear transformations, and ensuring it
-   -- will be a column vector
-   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
+   -- output of the previous linear transformations
+   local query = nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'}
 
    -- adding the query attribute mappings to the table of sets sharing weights
    table.insert(shareList,query_attribute_mappings)
@@ -160,12 +159,14 @@ function mm_one_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candida
 	 query = nn.CAddTable()({mapped_query,retrieved_entity_matrix})
       end
       
-      -- we take the dot product of each row (entity)
-      -- vector in the entity matrix with the linguistic query vector, to
-      -- obtain an entity-to-query similarity profile, that we softmax
-      -- normalize (note Views needed to get right shapes, and rescaling
-      -- by temperature)
-      local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix,query}))
+      -- we take the dot product of each row (entity) vector in the
+      -- entity matrix with the linguistic query vector, to obtain an
+      -- entity-to-query similarity profile, that we softmax normalize
+      -- (note Views needed to get right shapes, and rescaling by
+      -- temperature)
+      -- query needs to be a column vector
+      local query_as_column = nn.View(-1,1):setNumInputDims(1)(query)
+      local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix,query_as_column}))
       local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
       local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
       
@@ -178,7 +179,9 @@ function mm_one_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candida
    end -- end of hopping
 
    -- adding query to query mapping parameters to table of parameter sets sharing weights
-   table.insert(shareList,query_to_query_mappings)
+   if #query_to_query_mappings > 0 then -- only if there is more than one hop
+      table.insert(shareList,query_to_query_mappings)
+   end
 
    -- now we call the return_entity_image function to obtain a softmax
    -- over candidate images
