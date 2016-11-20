@@ -35,7 +35,7 @@ cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of 
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, mm_one_matrix, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters, entity_prediction_image_att_do_shared)')
+cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, mm_one_matrix, mm_standard, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters, entity_prediction_image_att_do_shared)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter being dropped, i.e having its commensurate output element be zero, for models that allow a different dropout probability for attributes to avoid the perfect matching problem; default: equivalent to no dropout')
@@ -135,10 +135,9 @@ end
 
 print('reading the models file')
 dofile('model.lua')
+dofile('model-memnet.lua')
 
 print('reading the data processing file')
---dofile('data.lua')
---dofile('data-new.lua')
 dofile('data-less-RAM.lua')
 
 -- ****** input data reading ******
@@ -230,31 +229,20 @@ elseif (opt.model=='mm_one_matrix') then
 		       opt.multimodal_size,
 		       opt.input_sequence_cardinality,
 		       opt.candidate_cardinality,
-		       opt.new_cell_nonlinearity,
 		       opt.nhops,
 		       opt.temperature,
 		       opt.dropout_prob,
 		       opt.use_cuda)
-elseif (opt.model=='entity_prediction_bias') then
-   model=entity_prediction_bias(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_shared') then
-   model=entity_prediction_image_shared(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
+elseif (opt.model=='mm_standard') then
+   model=mm_standard(t_input_size,
+		       v_input_size,
+		       opt.multimodal_size,
+		       opt.input_sequence_cardinality,
+		       opt.candidate_cardinality,
+		       opt.nhops,
+		       opt.temperature,
+		       opt.dropout_prob,
+		       opt.use_cuda)
 elseif (opt.model=='entity_prediction_image_att_shared') then
    model=entity_prediction_image_att_shared(t_input_size,
 				v_input_size,
@@ -265,97 +253,6 @@ elseif (opt.model=='entity_prediction_image_att_shared') then
 				opt.temperature,
 				opt.dropout_prob,
 				opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_do_shared') then
-   model=entity_prediction_image_att_do_shared(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.attribute_dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_probe') then
-   model=entity_prediction_probe(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_two_libraries') then
-   model=entity_prediction_two_libraries(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_one_to_one') then
-   model=entity_prediction_one_to_one(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_one_to_one_shared') then
-   model=entity_prediction_one_to_one_shared(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_direct_entity_matrix') then
-   model=entity_prediction_direct_entity_matrix(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_direct_entity_matrix_shared') then
-   model=entity_prediction_direct_entity_matrix_shared(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_no_parameters') then
-   model=entity_prediction_no_parameters(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction') then
-   model=entity_prediction(t_input_size,
-			   v_input_size,
-			   opt.multimodal_size,
-			   opt.input_sequence_cardinality,
-			   opt.candidate_cardinality,
-			   opt.new_cell_nonlinearity,
-			   opt.temperature,
-			   opt.dropout_prob,
-			   opt.use_cuda)
 end
 
 -- getting pointers to the model weights and their gradient

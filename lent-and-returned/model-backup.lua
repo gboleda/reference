@@ -1,6 +1,5 @@
 ---- BACKUPS OF MODELS AND VARIATIONS WE'VE TRIED -----
 
-
 function return_entity_image_no_parameters(v_inp_size,mm_size,candidate_cardinality,dropout_p,in_table,share_table,retrieved_entity_matrix)
    local image_candidate_vectors={}
    -- image candidates vectors
@@ -1331,6 +1330,8 @@ function entity_prediction_two_libraries(t_inp_size,v_inp_size,mm_size,inp_seq_c
       local raw_cumulative_similarity=nil
       if (opt.new_mass_aggregation_method=='mean') then
 	 raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
+      elseif (opt.new_mass_aggregation_method=='max') then
+	 raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
       else -- sum by default
 	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
