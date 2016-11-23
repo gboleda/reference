@@ -165,10 +165,6 @@ function entity_prediction_image_att_shared(t_inp_size,v_inp_size,mm_size,inp_se
 	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
       raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
-      -- -- debug from here
-      -- -- we hard-code the raw_new_entity model
-      -- local raw_new_entity_mass = nn.AddConstant(5)(nn.MulConstant(-1)(raw_cumulative_similarity)):annotate{name='raw_new_entity_mass'}
-      -- -- debug to here
       local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
       table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
 

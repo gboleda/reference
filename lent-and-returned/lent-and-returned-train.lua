@@ -35,7 +35,7 @@ cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of 
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 
 -- model parameters
-cmd:option('--model','entity_prediction','name of model to be used (currently supported: entity_prediction (default), ff, rnn, mm_one_matrix, mm_standard, entity_prediction_bias, entity_prediction_image_shared, entity_prediction_image_att_shared, entity_prediction_probe, entity_prediction_two_libraries, entity_prediction_one_to_one, entity_prediction_one_to_one_shared, entity_prediction_direct_entity_matrix, entity_prediction_direct_entity_matrix_shared, entity_prediction_no_parameters, entity_prediction_image_att_do_shared)')
+cmd:option('--model','ff','name of model to be used (currently supported: ff (default), rnn, mm_one_matrix, mm_standard, entity_prediction_image_att_shared,entity_prediction_image_att_shared_neprob)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter being dropped, i.e having its commensurate output element be zero, for models that allow a different dropout probability for attributes to avoid the perfect matching problem; default: equivalent to no dropout')
@@ -136,6 +136,7 @@ end
 print('reading the models file')
 dofile('model.lua')
 dofile('model-memnet.lua')
+dofile('model-with-germans-change.lua')
 
 print('reading the data processing file')
 dofile('data-less-RAM.lua')
@@ -253,6 +254,18 @@ elseif (opt.model=='entity_prediction_image_att_shared') then
 				opt.temperature,
 				opt.dropout_prob,
 				opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob') then
+   model=entity_prediction_image_att_shared_neprob(t_input_size,
+				v_input_size,
+				opt.multimodal_size,
+				opt.input_sequence_cardinality,
+				opt.candidate_cardinality,
+				opt.new_cell_nonlinearity,
+				opt.temperature,
+				opt.dropout_prob,
+				opt.use_cuda)
+else
+   print("wrong model name, program will die")
 end
 
 -- getting pointers to the model weights and their gradient
@@ -367,7 +380,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       end
 
       -- debug from here
-      if debug_file_prefix and opt.model=='entity_prediction_image_att_shared' then -- debug_file_prefix will be nil if debug mode is not on
+      if debug_file_prefix and (opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob') then -- debug_file_prefix will be nil if debug mode is not on
 
 	 local nodes = model:listModules()[1]['forwardnodes']
 
