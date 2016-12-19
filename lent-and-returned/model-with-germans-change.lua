@@ -93,7 +93,7 @@ function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size
       table.insert(token_object_mappings,token_object)
       -- putting together attribute and object 
       local object_token_vector_flat = nn.CAddTable()({token_attribute,token_object}):annotate{name='object_token_' .. i}
-      -- reshaping (to create a column vector)
+      -- reshaping
       local object_token_vector = nn.View(-1,1):setNumInputDims(1)(object_token_vector_flat)
 
       -- measuring the similarity of the current vector to the ones in
@@ -105,61 +105,57 @@ function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size
       -- average or max or sum by default of input vector cells...
       local raw_cumulative_similarity=nil
       if (opt.new_mass_aggregation_method=='mean') then
-	 raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
+        raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
       elseif (opt.new_mass_aggregation_method=='max') then
-	 raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
+         raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
       else -- sum by default
-	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
+         raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
       raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
       local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
       table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
 
       -- passing through nonlinearity if requested
-      -- ==> BUT, in this case we need to pass
-      -- it through a sigmoid to make sure that it is between 0 and 1,
-      -- right? otherwise, how can we make sure that p and (1-p) will
-      -- work?
       local transformed_new_entity_mass=nil
       if (nonlinearity=='none') then
-      	 transformed_new_entity_mass=raw_new_entity_mass
+          transformed_new_entity_mass=raw_new_entity_mass
       else
-      	 local nonlinear_hidden_layer = nil
-      	 if (nonlinearity == 'relu') then
-      	    transformed_new_entity_mass = nn.ReLU()(raw_new_entity_mass)
-      	 elseif (nonlinearity == 'tanh') then
-      	    transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
-      	 else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
-      	    transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
-      	 end
+          local nonlinear_hidden_layer = nil
+          if (nonlinearity == 'relu') then
+             transformed_new_entity_mass = nn.ReLU()(raw_new_entity_mass)
+          elseif (nonlinearity == 'tanh') then
+             transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
+          else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
+             print("Really using sigmoid")
+             transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
+          end
       end
 
-      -- * At step s, given the new information vector n, we initialize e_s (the new row in the entity matrix) as:
-      --     * e_s^{s} = p * n
-      -- ==> problem here: it's not a constant cause 1) output of linear module = tensor, 2) batches.
-      local new_entity_vector = nn.MM(transformed_new_entity_mass)(object_token_vector)
-      -- * For all other e_o, where 0<o<s, and with d_o the normalized similarity of e_o to n, we update e_o as follows:
-      --     * e_o^{s} = (1-p)*d_o*n + e_o^{s-1}
-      -- ==> maybe if we keep adding things to old vectors that has consequences -- very different value ranges for old vs. new?
-
-      -- we normalize the similarity profile and multiply it by 1-p to
-      -- obtain the weights for the old entity vectors (proportion by
-      -- which the new information will be added to each of them)
-      local weights_for_old_entities = nn.MM(1-transformed_new_entity_mass)(nn.SoftMax()(raw_similarity_profile_to_entity_matrix))
-
+      -- now, we concatenate the similarity profile with this new
+      -- cell, and normalize
+      -- NB: the output of the following very messy line of code is a
+      -- matrix with the profile of each item in a minibatch as
+      -- a ROW vector
+      transformed_new_entity_mass = nn.Peak("create new", true)(transformed_new_entity_mass)
+      local minus_transform_new_entity_mass = nn.AddConstant(1,true)(nn.MulConstant(-1,false)(transformed_new_entity_mass))
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(raw_similarity_profile_to_entity_matrix)):annotate{name='normalized_similarity_profile_' .. i}
+      normalized_similarity_profile = nn.Peek("softmax", true)(normalized_similarity_profile)
+      normalized_similarity_profile = nn.MM(false, false){nn.View(-1,i - 1, 1)(normalized_similarity_profile),nn.View(-1,1, 1)(minus_transform_new_entity_mass)}
+      normalized_similarity_profile = (nn.JoinTable(2,2)({nn.View(-1,i - 1)(normalized_similarity_profile),transformed_new_entity_mass}))
+      normalized_similarity_profile = nn.Peek("final weight")(normalized_similarity_profile)
       -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
-      -- weight vector (thus excluding the new entity)
-      local weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(weights_for_old_entities),object_token_vector}
+      -- normalized similarity profile (including, in the final row,
+      -- weighting by the normalized new mass cell): 
+      local weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
 
       -- at this point we update the entity matrix by adding the
       -- weighted versions of the current object token vector to each
-      -- row of it
-      local entity_matrix_except_for_new_vector= nn.CAddTable(){(entity_matrix_table[i-1]),weighted_object_token_vector_matrix}:annotate{'entity_matrix_table' .. i}
-      
-      -- and now we add the new entity vector to the matrix
-      -- NB: entity vectors are rows in this matrix
-      entity_matrix_table[i] = nn.JoinTable(1,2)({entity_matrix_except_for_new_vector,new_entity_vector})
+      -- row of it (we pad the bottom of the entity matrix with a zero
+      -- row, so that we can add it to the version of the current
+      -- object token vector that was weighted by the new mass cell
+      entity_matrix_table[i]= nn.CAddTable(){
+         nn.Padding(1,1,2)(entity_matrix_table[i-1]),weighted_object_token_vector_matrix}:annotate{'entity_matrix_table' .. i}
    end
    -- end of processing input objects
 
@@ -203,8 +199,8 @@ function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size
    for i = 1,#shareList do
       local m1 = shareList[i][1].data.module
       for j = 2,#shareList[i] do
-	 local m2 = shareList[i][j].data.module
-	 m2:share(m1,'weight','bias','gradWeight','gradBias')
+          local m2 = shareList[i][j].data.module
+          m2:share(m1,'weight','bias','gradWeight','gradBias')
       end
    end
    return model
