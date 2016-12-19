@@ -348,8 +348,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    
    -- reading the validation data batch by batch
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
-      batch_valid_input_representations_table,batch_valid_gold_index_tensor=
-	 create_input_structures_from_table(input_table,
+      local batch_valid_input_representations_table,batch_valid_gold_index_tensor=
+	         create_input_structures_from_table(input_table,
 					    gold_index_list,
 					    torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1),
 					    valid_batch_size,
@@ -374,7 +374,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- note conversions to long if we're not using cuda as only tensor
       -- type
       if (opt.use_cuda~=0) then
-	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
+	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor,model_guesses_indices))
       else
 	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
       end

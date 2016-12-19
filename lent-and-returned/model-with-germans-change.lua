@@ -137,7 +137,7 @@ function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size
       -- * At step s, given the new information vector n, we initialize e_s (the new row in the entity matrix) as:
       --     * e_s^{s} = p * n
       -- ==> problem here: it's not a constant cause 1) output of linear module = tensor, 2) batches.
-      local new_entity_vector = nn.MulConstant(transformed_new_entity_mass)(object_token_vector)
+      local new_entity_vector = nn.MM(transformed_new_entity_mass)(object_token_vector)
       -- * For all other e_o, where 0<o<s, and with d_o the normalized similarity of e_o to n, we update e_o as follows:
       --     * e_o^{s} = (1-p)*d_o*n + e_o^{s-1}
       -- ==> maybe if we keep adding things to old vectors that has consequences -- very different value ranges for old vs. new?
@@ -145,7 +145,7 @@ function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size
       -- we normalize the similarity profile and multiply it by 1-p to
       -- obtain the weights for the old entity vectors (proportion by
       -- which the new information will be added to each of them)
-      local weights_for_old_entities = nn.MulConstant(1-transformed_new_entity_mass)(nn.SoftMax()(raw_similarity_profile_to_entity_matrix))
+      local weights_for_old_entities = nn.MM(1-transformed_new_entity_mass)(nn.SoftMax()(raw_similarity_profile_to_entity_matrix))
 
       -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
