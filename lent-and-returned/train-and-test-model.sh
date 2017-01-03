@@ -5,7 +5,7 @@ datadir='exp-bal12'
 trsetsize=40000
 vsetsize=5000
 tesetsize=10000
-prefixfortraining=multiple-stimuli
+prefixfortraining=stimuli
 test_file=stimuli.test
 
 # MODEL PARAMETERS

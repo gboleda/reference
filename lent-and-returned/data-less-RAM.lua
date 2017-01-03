@@ -37,11 +37,6 @@ function load_embeddings(i_file,normalize_embeddings)
 end
 
 
---- TO DO: instead of creating tables of tensors as input, to create
---- tables of indices (basically, copy the stimuli files to tables)
---- and then copy the tensors with the embeddings only after having
---- decided, for each minibatch, which trials we're going to use.
-
 -- returns output_table, containing a set of n x embeddings_dim tensors
 -- each of which has the data for one input trial per row (n is the
 -- number of trials, embeddings_dim changes depending on the nature of

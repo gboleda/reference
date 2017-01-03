@@ -131,7 +131,7 @@ end
 -- to do:
 -- for the entity counting task: normalize every entity vector and sum. # gbt: Note that we are actually exposing the entity library in this task. # gbt: How are we going to adapt the other models?
 -- but... if we do this and we have identical images for the entities... isn't the entity counting task trivial for our model?
--- for the entity-of-a-given-category counting task: normalize every entity vector, do dot product to query of every entity vector, and sum. # gbt: did I get it right?
+-- for the entity-of-a-given-category counting task: normalize every entity vector, do dot product to query of every entity vector, and sum. # for the moment we do it without normalizing to see if the model learns to scale. If not, revert to normalization.
 function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda)
 
    local inputs = {}
@@ -178,34 +178,18 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
 
    -- we are done processing input attributes, so we add their parameter list to the list of parameters to be shared
    table.insert(shareList,attribute_mappings)
-
    
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
-   -- obtain an entity-to-query similarity profile, that we softmax
-   -- normalize (note Views needed to get right shapes, and rescaling
-   -- by temperature)
-   local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({stable_entity_matrix,query}))
-   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
-   local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
-
-   -- we now do "soft retrieval" of the entity that matches the query:
-   -- we obtain a vector that is a weighted sum of all the entity
-   -- vectors in the entity library (weights= similarity profile, such
-   -- that we will return the entity that is most similar to the
-   -- query) (we get a matrix of such vectors because of mini-batches)
-   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,stable_entity_matrix})
-   
-   -- now we call the return_entity_image_shared function to obtain a softmax
-   -- over candidate images
-   local output_distribution=return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,token_object_mappings,retrieved_entity_matrix)
-   
+   -- obtain an entity-to-query similarity profile
+   local matrix_query_entity_similarity_profile = nn.MM(false,false)({stable_entity_matrix,query})
+   -- and we sum them to obtain the predicted number of entities
+   local output_number_of_entities = nn.Sum(1,2)(matrix_query_entity_similarity_profile)
    -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
    table.insert(shareList,token_object_mappings)
 
-
    -- wrapping up the model
-   local model = nn.gModule(inputs,{output_distribution})
+   local model = nn.gModule(inputs,{output_number_of_entities})
    
    -- following code is adapted from MeMNN 
    if (use_cuda ~= 0) then
@@ -348,7 +332,6 @@ function entity_prediction_image_att_shared_neprob_counting_backup(t_inp_size,v_
           elseif (nonlinearity == 'tanh') then
              transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
           else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
-             print("Really using sigmoid")
              transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
           end
       end
