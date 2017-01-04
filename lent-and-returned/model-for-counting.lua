@@ -167,7 +167,7 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
    -- putting together the multimodal query vector by summing the
    -- output of the previous linear transformations, and ensuring it
    -- will be a column vector
-   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
+   query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
 
    -- we initalize the table to store the object mappings here, so we can share first when constructing the entity matrix, and then
    -- later when processing the candidate images
@@ -181,8 +181,9 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
    
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
-   -- obtain an entity-to-query similarity profile
-   local matrix_query_entity_similarity_profile = nn.MM(false,false)({stable_entity_matrix,query})
+   -- obtain an entity-to-query similarity profile, which we pass through a sigmoid to encourage the values to be binary
+   local raw_matrix_query_entity_similarity_profile = nn.MM(false,false)({stable_entity_matrix,query})
+   local matrix_query_entity_similarity_profile = nn.Sigmoid()(raw_matrix_query_entity_similarity_profile)
    -- and we sum them to obtain the predicted number of entities
    local output_number_of_entities = nn.Sum(1,2)(matrix_query_entity_similarity_profile)
    -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
