@@ -44,8 +44,6 @@ cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e 
 cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter being dropped, i.e having its commensurate output element be zero, for models that allow a different dropout probability for attributes to avoid the perfect matching problem; default: equivalent to no dropout')
 ---- entity_prediction parameters
 cmd:option('--temperature',1,'before transforming the vector of dot products of the query with the object tokens into a softmax, multiply by temperature: the larger the temperature, the more skewed the probability distribution produced by the softmax (default: no rescaling)')
--- following for counting only
-cmd:option('--counting_transformation','tanh_relu','transformation of dot products between query and entities for counting purposes (options: tanh_relu (default), sigmoid_threshold)')
 ---- ff and rnn parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
