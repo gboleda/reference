@@ -43,8 +43,6 @@ cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter being dropped, i.e having its commensurate output element be zero, for models that allow a different dropout probability for attributes to avoid the perfect matching problem; default: equivalent to no dropout')
 ---- entity_prediction parameters
-cmd:option('--new_mass_aggregation_method','sum','when computing the new entity mass cell, use as input sum (default), max or mean of values in similarity profile')
-cmd:option('--new_cell_nonlinearity','none','nonlinear transformation of mapping to predict new cell (options: none (default), sigmoid, relu, tanh)')
 cmd:option('--temperature',1,'before transforming the vector of dot products of the query with the object tokens into a softmax, multiply by temperature: the larger the temperature, the more skewed the probability distribution produced by the softmax (default: no rescaling)')
 -- following for counting only
 cmd:option('--counting_transformation','tanh_relu','transformation of dot products between query and entities for counting purposes (options: tanh_relu (default), sigmoid_threshold)')
@@ -277,11 +275,9 @@ elseif(opt.task=='counting') then
 				opt.multimodal_size,
 				opt.input_sequence_cardinality,
 				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
 				opt.temperature,
 				opt.dropout_prob,
-				opt.use_cuda,
-				opt.counting_transformation)
+				opt.use_cuda)
    else
       print("wrong model name, program will die")
    end
@@ -419,13 +415,13 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	 end
 
 	 local similarity_profiles_table = {}
-	 local raw_cumulative_similarity_table = {}
+	 local raw_old_entity_table = {}
 	 for i=2,opt.input_sequence_cardinality do
 	    for _,node in ipairs(nodes) do
 	       if node.data.annotations.name=='normalized_similarity_profile_' .. i then
 		  table.insert(similarity_profiles_table,node.data.module.output)
-	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
-		  table.insert(raw_cumulative_similarity_table,node.data.module.output)
+	       elseif node.data.annotations.name=='raw_old_entity_mass_' .. i then
+		  table.insert(raw_old_entity_table,node.data.module.output)
 	       end
 	       if node.data.annotations.name=='query_entity_similarity_profile' then
 		  query_entity_similarity_profile_tensor=node.data.module.output
@@ -444,9 +440,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	       f1:write(" ")
 	    end
 	    f1:write("\n")
-	    for j=1,#raw_cumulative_similarity_table do
+	    for j=1,#raw_old_entity_table do
 	       local ref_position = j+1
-	       f2:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
+	       f2:write("::",ref_position,":: ",raw_old_entity_table[j][i][1]," ")
 	    end
 	    f2:write("\n")
 	    if (opt.model=='entity_prediction_image_att_shared_neprob_counting') then -- this is actually a tensor with a special format!
@@ -553,14 +549,14 @@ while (continue_training==1) do
    local output_debug_prefix_epoch = nil
    if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob_counting' then -- if output_debug_prefix is not nil, we are in debug mode
       output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
-      -- this is done once per epoch:
-      local nodes = model:listModules()[1]['forwardnodes']
-      for _,node in ipairs(nodes) do
-	 if node.data.annotations.name=='raw_new_entity_mass_2' then
-	    print('new mass bias is ' .. node.data.module.bias[1])
-	    print('new mass weight is ' .. node.data.module.weight[1][1])
-	 end
-      end
+      -- -- this is done once per epoch:
+      -- local nodes = model:listModules()[1]['forwardnodes']
+      -- for _,node in ipairs(nodes) do
+      -- 	 if node.data.annotations.name=='raw_new_entity_mass_2' then
+      -- 	    print('new mass bias is ' .. node.data.module.bias[1])
+      -- 	    print('new mass weight is ' .. node.data.module.weight[1][1])
+      -- 	 end
+      -- end
       print("writing further info for debugging/analysis in file(s) with prefix " .. output_debug_prefix_epoch) -- done in test function (called below)
    end
 
