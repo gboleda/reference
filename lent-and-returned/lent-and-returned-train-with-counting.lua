@@ -46,6 +46,8 @@ cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter
 cmd:option('--new_mass_aggregation_method','sum','when computing the new entity mass cell, use as input sum (default), max or mean of values in similarity profile')
 cmd:option('--new_cell_nonlinearity','none','nonlinear transformation of mapping to predict new cell (options: none (default), sigmoid, relu, tanh)')
 cmd:option('--temperature',1,'before transforming the vector of dot products of the query with the object tokens into a softmax, multiply by temperature: the larger the temperature, the more skewed the probability distribution produced by the softmax (default: no rescaling)')
+-- following for counting only
+cmd:option('--counting_transformation','tanh_relu','transformation of dot products between query and entities for counting purposes (options: tanh_relu (default), sigmoid_threshold)')
 ---- ff and rnn parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
 cmd:option('--hidden_count',1,'number of hidden layers')
@@ -278,7 +280,8 @@ elseif(opt.task=='counting') then
 				opt.new_cell_nonlinearity,
 				opt.temperature,
 				opt.dropout_prob,
-				opt.use_cuda)
+				opt.use_cuda,
+				opt.counting_transformation)
    else
       print("wrong model name, program will die")
    end
@@ -446,8 +449,14 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	       f2:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
 	    end
 	    f2:write("\n")
-	    for k=1,query_entity_similarity_profile_tensor:size(3) do
-	       f3:write(query_entity_similarity_profile_tensor[i][1][k]," ")
+	    if (opt.model=='entity_prediction_image_att_shared_neprob_counting') then -- this is actually a tensor with a special format!
+	       for k=1,query_entity_similarity_profile_tensor:size(2) do
+		  f3:write(query_entity_similarity_profile_tensor[i][k][1]," ")
+	       end
+	    else
+	       for k=1,query_entity_similarity_profile_tensor:size(3) do
+		  f3:write(query_entity_similarity_profile_tensor[i][1][k]," ")
+	       end
 	    end
 	    f3:write("\n")
 	 end
@@ -542,7 +551,7 @@ while (continue_training==1) do
 
    -- debug information
    local output_debug_prefix_epoch = nil
-   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' then -- if output_debug_prefix is not nil, we are in debug mode
+   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob_counting' then -- if output_debug_prefix is not nil, we are in debug mode
       output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
       -- this is done once per epoch:
       local nodes = model:listModules()[1]['forwardnodes']

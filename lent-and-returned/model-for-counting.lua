@@ -99,10 +99,10 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
       -- a ROW vector
       --transformed_new_entity_mass = nn.Peek("create new", true)(transformed_new_entity_mass)
       local minus_transform_new_entity_mass = nn.AddConstant(1,false)(nn.MulConstant(-1,false)(transformed_new_entity_mass))
-      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(raw_similarity_profile_to_entity_matrix)):annotate{name='normalized_similarity_profile_' .. i}
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(raw_similarity_profile_to_entity_matrix))
       --normalized_similarity_profile = nn.Peek("softmax", true)(normalized_similarity_profile)
       normalized_similarity_profile = nn.MM(false, false){nn.View(-1,i - 1, 1)(normalized_similarity_profile),nn.View(-1,1, 1)(minus_transform_new_entity_mass)}
-      normalized_similarity_profile = (nn.JoinTable(2,2)({nn.View(-1,i - 1)(normalized_similarity_profile),transformed_new_entity_mass}))
+      normalized_similarity_profile = (nn.JoinTable(2,2)({nn.View(-1,i - 1)(normalized_similarity_profile),transformed_new_entity_mass})):annotate{name='normalized_similarity_profile_' .. i}
       --normalized_similarity_profile = nn.Peek("final weight", true)(normalized_similarity_profile)
       -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
@@ -132,7 +132,7 @@ end
 -- for the entity counting task: normalize every entity vector and sum. # gbt: Note that we are actually exposing the entity library in this task. # gbt: How are we going to adapt the other models?
 -- but... if we do this and we have identical images for the entities... isn't the entity counting task trivial for our model?
 -- for the entity-of-a-given-category counting task: normalize every entity vector, do dot product to query of every entity vector, and sum. # for the moment we do it without normalizing to see if the model learns to scale. If not, revert to normalization.
-function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda)
+function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda,counting_transformation)
 
    local inputs = {}
 
@@ -181,9 +181,20 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
    
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
-   -- obtain an entity-to-query similarity profile, which we pass through a sigmoid to encourage the values to be binary
-   local raw_matrix_query_entity_similarity_profile = nn.MM(false,false)({stable_entity_matrix,query})
-   local matrix_query_entity_similarity_profile = nn.Sigmoid()(raw_matrix_query_entity_similarity_profile)
+   -- obtain an entity-to-query similarity profile, which we pass through a set of transformations so that non-positive dot products will be
+   -- mapped to 0, and positive ones will be in the 0-1 range (making this an approximation to an integer-based "count"
+   local raw_matrix_query_entity_similarity_profile_1 = nn.MM(false,false)({stable_entity_matrix,query})
+   local matrix_query_entity_similarity_profile = nil
+   if (counting_transformation=='tanh_relu') then
+      local raw_matrix_query_entity_similarity_profile_2 = nn.Tanh()(raw_matrix_query_entity_similarity_profile_1)
+      matrix_query_entity_similarity_profile = nn.ReLU()(raw_matrix_query_entity_similarity_profile_2):annotate{name='query_entity_similarity_profile'}
+   elseif (counting_transformation=='sigmoid_threshold') then
+      local raw_matrix_query_entity_similarity_profile_2 = nn.Sigmoid()(raw_matrix_query_entity_similarity_profile_1)
+      matrix_query_entity_similarity_profile = nn.Threshold(0.5, 0)(raw_matrix_query_entity_similarity_profile_2):annotate{name='query_entity_similarity_profile'}
+   else
+      error("Wrong option for counting_transformation: " .. counting_transformation)
+   end
+
    -- and we sum them to obtain the predicted number of entities
    local output_number_of_entities = nn.Sum(1,2)(matrix_query_entity_similarity_profile)
    -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
