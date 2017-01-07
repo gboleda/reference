@@ -263,6 +263,15 @@ if (opt.task=='tracking') then
 						      opt.temperature,
 						      opt.dropout_prob,
 						      opt.use_cuda)
+   elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
+      model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
+							    v_input_size,
+							    opt.multimodal_size,
+							    opt.input_sequence_cardinality,
+							    opt.candidate_cardinality,
+							    opt.temperature,
+							    opt.dropout_prob,
+							    opt.use_cuda)
    else print("wrong model name, program will die")
    end
 elseif(opt.task=='counting') then

@@ -141,15 +141,15 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
    -- will be a column vector
    query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
 
-   -- we initalize the table to store the object mappings here, so we can share first when constructing the entity matrix, and then
-   -- later when processing the candidate images
+   -- we initalize the table to store the object mappings here
    local token_object_mappings = {}
 
    -- now we call a function to process the object tokens and return an entity matrix
    local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings,shareList)
 
-   -- we are done processing input attributes, so we add their parameter list to the list of parameters to be shared
+   -- we are done processing input attributes and objects, so we add their parameter list to the list of parameters to be shared
    table.insert(shareList,attribute_mappings)
+   table.insert(shareList,token_object_mappings)
    
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
@@ -162,11 +162,107 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
 
    -- and we sum them to obtain the predicted number of entities
    local output_number_of_entities = nn.Sum(1,2)(matrix_query_entity_similarity_profile)
-   -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
-   table.insert(shareList,token_object_mappings)
 
    -- wrapping up the model
    local model = nn.gModule(inputs,{output_number_of_entities})
+   
+   -- following code is adapted from MeMNN 
+   if (use_cuda ~= 0) then
+      model:cuda()
+   end
+   -- IMPORTANT! do weight sharing after model is in cuda
+   for i = 1,#shareList do
+      local m1 = shareList[i][1].data.module
+      for j = 2,#shareList[i] do
+          local m2 = shareList[i][j].data.module
+          m2:share(m1,'weight','bias','gradWeight','gradBias')
+      end
+   end
+   return model
+
+end
+
+
+--- PASTED FROM HERE
+-- our main model sharing all image embeddings and all attribute embeddings
+-- WITH GEMMA'S AND MARCO'S CHANGE TO GERMÁN'S CHANGE
+function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,temperature,dropout_p,use_cuda)
+
+   local inputs = {}
+
+   -- a table to store tables of connections that must share parameters
+   local shareList = {}
+
+   -- table to collect all attribute mappings, to be shared
+   local attribute_mappings = {}
+
+   -- first, we process the query, mapping it onto multimodal space
+
+   -- the first attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_attribute_1_do = nn.Dropout(dropout_p)(curr_input)
+   local query_attribute_1 = nn.LinearNB(t_inp_size, mm_size)(query_attribute_1_do):annotate{name='query_att1'}
+   table.insert(attribute_mappings,query_attribute_1)
+
+   -- the second attribute in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_attribute_2_do = nn.Dropout(dropout_p)(curr_input)
+   local query_attribute_2 = nn.LinearNB(t_inp_size, mm_size)(query_attribute_2_do):annotate{name='query_att2'}
+   table.insert(attribute_mappings,query_attribute_2)
+   
+   -- the object name in the query
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local query_object_do = nn.Dropout(dropout_p)(curr_input)
+   local query_object = nn.LinearNB(t_inp_size, mm_size)(query_object_do):annotate{name='query_object'}
+
+   -- putting together the multimodal query vector by summing the
+   -- output of the previous linear transformations, and ensuring it
+   -- will be a column vector
+   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
+
+   -- now we process the object tokens
+
+   -- a table to store the entity matrix as it evolves through time
+   local entity_matrix_table = {}
+   -- we initalize the table to store the object mappings here, so we can share first when constructing the entity matrix, and then
+   -- later when processing the candidate images
+   local token_object_mappings = {}
+
+   -- now we call a function to process the object tokens and return an entity matrix
+   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings,shareList)
+
+   -- we are done processing input attributes, so we add their parameter list to the list of parameters to be shared
+   table.insert(shareList,attribute_mappings)
+
+   -- at this point, we take the dot product of each row (entity)
+   -- vector in the entity matrix with the linguistic query vector, to
+   -- obtain an entity-to-query similarity profile, that we softmax
+   -- normalize (note Views needed to get right shapes, and rescaling
+   -- by temperature)
+   local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({stable_entity_matrix,query}))
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
+
+   -- we now do "soft retrieval" of the entity that matches the query:
+   -- we obtain a vector that is a weighted sum of all the entity
+   -- vectors in the entity library (weights= similarity profile, such
+   -- that we will return the entity that is most similar to the
+   -- query) (we get a matrix of such vectors because of mini-batches)
+   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,stable_entity_matrix})
+   
+   -- now we call the return_entity_image_shared function to obtain a softmax
+   -- over candidate images
+   local output_distribution=return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,token_object_mappings,retrieved_entity_matrix)
+   
+   -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
+   table.insert(shareList,token_object_mappings)
+
+
+   -- wrapping up the model
+   local model = nn.gModule(inputs,{output_distribution})
    
    -- following code is adapted from MeMNN 
    if (use_cuda ~= 0) then
