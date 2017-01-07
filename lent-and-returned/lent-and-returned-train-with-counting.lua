@@ -402,14 +402,14 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	 -- note conversions to long if we're not using cuda as only tensor
 	 -- type
 	 if (opt.use_cuda~=0) then
-	    hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor,model_guesses_indices))
+	    hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
 	 else
 	    hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
 	 end
       end
       
       -- debug from here
-      if debug_file_prefix and (opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob' or opt.model=='entity_prediction_image_att_shared_neprob_counting') then -- debug_file_prefix will be nil if debug mode is not on
+      if debug_file_prefix and (opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob' or opt.model=='entity_prediction_image_att_shared_neprob_counting' or opt.model=='entity_prediction_image_att_shared_neprob_onion') then -- debug_file_prefix will be nil if debug mode is not on
 
 	 local nodes = model:listModules()[1]['forwardnodes']
 
@@ -554,7 +554,7 @@ while (continue_training==1) do
 
    -- debug information
    local output_debug_prefix_epoch = nil
-   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob_counting' then -- if output_debug_prefix is not nil, we are in debug mode
+   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob_counting' or opt.model=='entity_prediction_image_att_shared_neprob_onion' then -- if output_debug_prefix is not nil, we are in debug mode
       output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
       -- -- this is done once per epoch:
       -- local nodes = model:listModules()[1]['forwardnodes']
