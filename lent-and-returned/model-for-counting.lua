@@ -1,4 +1,4 @@
-function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, att_mappings_table, share_table)
+function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, att_mappings_table) --, share_table)
    -- this function builds an entity matrix with as many rows as input
    -- tokens, although some row might be 0 vectors because the
    -- corresponding input information is mapped to existing entity
@@ -58,18 +58,15 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
       local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
       ({entity_matrix_table[i-1],object_token_vector})
 
-      -- computing the old-entity mass value
-      -- max of input vector cells:
+      -- computing the old-entity mass value as max of input vector
+      -- cells followed by a transformation that ensures that it is
+      -- between 0 and 1
       local raw_old_entity_mass=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix):annotate{name='raw_old_entity_mass_' .. i}
-      -- local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
       local normalized_old_entity_mass = nn.ReLU()(nn.Tanh()(raw_old_entity_mass))
-
       -- now, we concatenate the similarity profile with a new cell,
       -- given by 1 - normalized_old_entity_mass
-      --transformed_new_entity_mass = nn.Peek("create new", true)(transformed_new_entity_mass)
       local normalized_new_entity_mass = nn.AddConstant(1,false)(nn.MulConstant(-1,false)(normalized_old_entity_mass))
       local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(raw_similarity_profile_to_entity_matrix))
-      --normalized_similarity_profile = nn.Peek("softmax", true)(normalized_similarity_profile)
       -- NB: the output of the following very messy line of code is a
       -- matrix with the profile of each item in a minibatch as
       -- a ROW vector
@@ -91,9 +88,6 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
          nn.Padding(1,1,2)(entity_matrix_table[i-1]),weighted_object_token_vector_matrix}:annotate{'entity_matrix_table' .. i}
    end
    -- end of processing input objects
-
-   -- adding to shareList the entity mass mappings
-   table.insert(share_table,raw_new_entity_mass_mappings)
 
    -- and finally returning the last state of the entity matrix
    return entity_matrix_table[inp_seq_cardinality]
@@ -139,13 +133,13 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
    -- putting together the multimodal query vector by summing the
    -- output of the previous linear transformations, and ensuring it
    -- will be a column vector
-   query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
+   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
 
    -- we initalize the table to store the object mappings here
    local token_object_mappings = {}
 
    -- now we call a function to process the object tokens and return an entity matrix
-   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings,shareList)
+   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings)--,shareList)
 
    -- we are done processing input attributes and objects, so we add their parameter list to the list of parameters to be shared
    table.insert(shareList,attribute_mappings)
@@ -223,16 +217,11 @@ function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,m
    -- will be a column vector
    local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
 
-   -- now we process the object tokens
-
-   -- a table to store the entity matrix as it evolves through time
-   local entity_matrix_table = {}
-   -- we initalize the table to store the object mappings here, so we can share first when constructing the entity matrix, and then
-   -- later when processing the candidate images
+   -- we initalize the table to store the object mappings here
    local token_object_mappings = {}
 
    -- now we call a function to process the object tokens and return an entity matrix
-   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings,shareList)
+   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings)--,shareList)
 
    -- we are done processing input attributes, so we add their parameter list to the list of parameters to be shared
    table.insert(shareList,attribute_mappings)
