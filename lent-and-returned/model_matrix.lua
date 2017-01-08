@@ -27,7 +27,7 @@ end
 --   local token_vector = nn.CAddTable()({token_attribute,token_object})
 --   return token_vector
 --end
-local function add_new_input_and_create_mapping(inputs, input_size, mapping_size, dropout_p, share_mappings_select, share_mappings_compare)
+local function add_new_input_and_create_double_mapping(inputs, input_size, mapping_size, dropout_p, share_mappings_select, share_mappings_compare)
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
    local mapping_in_do = nn.Dropout(dropout_p)(curr_input)
@@ -41,9 +41,9 @@ end
 local function add_and_compute_token_vector(inputs, t_input_size, v_input_size, mapping_size, dropout_p, attribute_mappings_select, object_mappings_select, 
             attribute_mappings_compare, object_mappings_compare)
     -- first processing the attribute
-   local token_attribute_select, token_attribute_compare = add_new_input_and_create_mapping(inputs,t_input_size,mapping_size,dropout_p,attribute_mappings_select, attribute_mappings_compare)
+   local token_attribute_select, token_attribute_compare = add_new_input_and_create_double_mapping(inputs,t_input_size,mapping_size,dropout_p,attribute_mappings_select, attribute_mappings_compare)
    -- processing the object image
-   local token_object_select, token_object_compare = add_new_input_and_create_mapping(inputs,v_input_size,mapping_size,dropout_p,object_mappings_select, object_mappings_compare)
+   local token_object_select, token_object_compare = add_new_input_and_create_double_mapping(inputs,v_input_size,mapping_size,dropout_p,object_mappings_select, object_mappings_compare)
    -- putting together attribute and object 
    local token_vector_select = nn.CAddTable()({token_attribute_select,token_object_select})
    local token_vector_compare = nn.CAddTable()({token_attribute_compare,token_object_compare})
