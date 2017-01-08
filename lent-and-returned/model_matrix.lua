@@ -138,9 +138,11 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
       -- row of it (we pad the bottom of the entity matrix with a zero
       -- row, so that we can add it to the version of the current
       -- object token vector that was weighted by the new mass cell
-      entity_matrix_table_select[i]= nn.CAddTable(){
-         nn.Padding(1,1,2)(entity_matrix_table_select[i-1]),weighted_object_token_vector_matrix_select}:annotate{'entity_matrix_table' .. i}
-         entity_matrix_table_compare[i]= nn.CAddTable(){
+      if (i ~= inp_seq_cardinality) then
+        entity_matrix_table_select[i]= nn.CAddTable(){
+           nn.Padding(1,1,2)(entity_matrix_table_select[i-1]),weighted_object_token_vector_matrix_select}:annotate{'entity_matrix_table' .. i}
+      end
+      entity_matrix_table_compare[i]= nn.CAddTable(){
          nn.Padding(1,1,2)(entity_matrix_table_compare[i-1]),weighted_object_token_vector_matrix_compare}:annotate{'entity_matrix_table' .. i}
    end
    -- end of processing input objects
