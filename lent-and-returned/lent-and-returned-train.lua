@@ -137,6 +137,7 @@ print('reading the models file')
 dofile('model.lua')
 dofile('model-memnet.lua')
 dofile('model-with-germans-change.lua')
+dofile('model_matrix.lua')
 
 print('reading the data processing file')
 dofile('data-less-RAM.lua')
@@ -264,6 +265,17 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob') then
 				opt.temperature,
 				opt.dropout_prob,
 				opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices') then
+   model=entity_prediction_image_att_shared_neprob_with_2_matrices(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.candidate_cardinality,
+        opt.new_cell_nonlinearity,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
+				
 else
    print("wrong model name, program will die")
 end
@@ -544,12 +556,12 @@ while (continue_training==1) do
       -- max_validation_lull epochs
    elseif (epoch_counter>opt.min_epochs) then
       if (validation_loss>=previous_validation_loss) then
-	 non_improving_epochs_count=non_improving_epochs_count+1
-	 if (non_improving_epochs_count>=opt.max_validation_lull) then
-	    continue_training=0
-	 end
+	       non_improving_epochs_count=non_improving_epochs_count+1
+	       if (non_improving_epochs_count>=opt.max_validation_lull) then
+	         continue_training=0
+	       end
       else 
-	 non_improving_epochs_count=0
+	       non_improving_epochs_count=0
       end
    end
    previous_validation_loss=validation_loss
