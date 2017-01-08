@@ -138,10 +138,8 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
       -- row of it (we pad the bottom of the entity matrix with a zero
       -- row, so that we can add it to the version of the current
       -- object token vector that was weighted by the new mass cell
-      if (i ~= inp_seq_cardinality) then
-        entity_matrix_table_select[i]= nn.CAddTable(){
-           nn.Padding(1,1,2)(entity_matrix_table_select[i-1]),weighted_object_token_vector_matrix_select}:annotate{'entity_matrix_table' .. i}
-      end
+      entity_matrix_table_select[i]= nn.CAddTable(){
+         nn.Padding(1,1,2)(entity_matrix_table_select[i-1]),weighted_object_token_vector_matrix_select}:annotate{'entity_matrix_table' .. i}
       entity_matrix_table_compare[i]= nn.CAddTable(){
          nn.Padding(1,1,2)(entity_matrix_table_compare[i-1]),weighted_object_token_vector_matrix_compare}:annotate{'entity_matrix_table' .. i}
    end
@@ -167,11 +165,11 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
    -- vectors in the entity library (weights= similarity profile, such
    -- that we will return the entity that is most similar to the
    -- query) (we get a matrix of such vectors because of mini-batches)
-   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,entity_matrix_table_compare[inp_seq_cardinality]})
+   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,entity_matrix_table_select[inp_seq_cardinality]})
    
    -- now we call the return_entity_image_shared function to obtain a softmax
    -- over candidate images
-   local output_distribution=return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,token_object_mappings_compare,retrieved_entity_matrix)
+   local output_distribution=return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,token_object_mappings_select,retrieved_entity_matrix)
    
    -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
    table.insert(shareList,token_object_mappings_select)
