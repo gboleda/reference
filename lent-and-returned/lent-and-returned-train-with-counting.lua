@@ -272,7 +272,7 @@ if (opt.task=='tracking') then
 							    opt.temperature,
 							    opt.dropout_prob,
 							    opt.use_cuda)
-   else print("wrong model name, program will die")
+   else error("wrong model name: " .. opt.model)
    end
 elseif(opt.task=='counting') then
    criterion=nn.MSECriterion()
@@ -286,10 +286,10 @@ elseif(opt.task=='counting') then
 				opt.dropout_prob,
 				opt.use_cuda)
    else
-      print("wrong model name, program will die")
+      error("wrong model name: " .. opt.model)
    end
 else
-   error("wrong task name")
+   error("wrong task name: " .. opt.task)
 end
 if (opt.use_cuda ~= 0) then
    criterion:cuda()
