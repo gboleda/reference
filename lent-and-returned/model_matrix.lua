@@ -18,14 +18,36 @@ local function add_new_input_and_create_mapping(inputs, input_size, mapping_size
    return mapping
 end
 
-local function add_and_compute_token_vector(inputs, t_input_size, v_input_size, mapping_size, dropout_p, attribute_mappings, object_mappings)
+--local function add_and_compute_token_vector(inputs, t_input_size, v_input_size, mapping_size, dropout_p, attribute_mappings, object_mappings)
+--    -- first processing the attribute
+--   local token_attribute = add_new_input_and_create_mapping(inputs,t_input_size,mapping_size,dropout_p,attribute_mappings)
+--   -- processing the object image
+--   local token_object = add_new_input_and_create_mapping(inputs,v_input_size,mapping_size,dropout_p,object_mappings)
+--   -- putting together attribute and object 
+--   local token_vector = nn.CAddTable()({token_attribute,token_object})
+--   return token_vector
+--end
+local function add_new_input_and_create_mapping(inputs, input_size, mapping_size, dropout_p, share_mappings_select, share_mappings_compare)
+   local curr_input = nn.Identity()()
+   table.insert(inputs,curr_input)
+   local mapping_in_do = nn.Dropout(dropout_p)(curr_input)
+   local mapping_select = nn.LinearNB(input_size, mapping_size)(mapping_in_do):annotate{name='select'}
+   local mapping_compare = nn.LinearNB(input_size, mapping_size)(mapping_in_do):annotate{name='compare'}
+   table.insert(share_mappings_select,mapping_select)
+   table.insert(share_mappings_compare,mapping_compare)
+   return mapping_select, mapping_compare
+end
+
+local function add_and_compute_token_vector(inputs, t_input_size, v_input_size, mapping_size, dropout_p, attribute_mappings_select, object_mappings_select, 
+            attribute_mappings_compare, object_mappings_compare)
     -- first processing the attribute
-   local token_attribute = add_new_input_and_create_mapping(inputs,t_input_size,mapping_size,dropout_p,attribute_mappings)
+   local token_attribute_select, token_attribute_compare = add_new_input_and_create_mapping(inputs,t_input_size,mapping_size,dropout_p,attribute_mappings_select, attribute_mappings_compare)
    -- processing the object image
-   local token_object = add_new_input_and_create_mapping(inputs,v_input_size,mapping_size,dropout_p,object_mappings)
+   local token_object_select, token_object_compare = add_new_input_and_create_mapping(inputs,v_input_size,mapping_size,dropout_p,object_mappings_select, object_mappings_compare)
    -- putting together attribute and object 
-   local token_vector = nn.CAddTable()({token_attribute,token_object})
-   return token_vector
+   local token_vector_select = nn.CAddTable()({token_attribute_select,token_object_select})
+   local token_vector_compare = nn.CAddTable()({token_attribute_compare,token_object_compare})
+   return token_vector_select, token_vector_compare
 end
 
 function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda)
@@ -65,8 +87,8 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
    -- the first object token is a special case, as it will always be
    -- directly mapped to the first row of the entity matrix
    
-   local first_object_token_vector_select = add_and_compute_token_vector(inputs,t_inp_size,v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select)
-   local first_object_token_vector_compare = add_and_compute_token_vector(inputs,t_inp_size,v_inp_size,mm_size,dropout_p,attribute_mappings_compare,token_object_mappings_compare)
+   local first_object_token_vector_select, first_object_token_vector_compare = add_and_compute_token_vector(inputs,t_inp_size,
+            v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select, attribute_mappings_compare,token_object_mappings_compare)
    -- turning the vector into a 1xmm_size matrix, adding the latter as
    -- first state of the entity matrix table
    table.insert(entity_matrix_table_select,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector_select))
@@ -75,8 +97,8 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
    -- now we process all the other object tokens in a loop
    for i=2,inp_seq_cardinality do
       
-      local object_token_vector_flat_select = add_and_compute_token_vector(inputs,t_inp_size,v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select):annotate{name='object_token_' .. i}
-      local object_token_vector_flat_compare = add_and_compute_token_vector(inputs,t_inp_size,v_inp_size,mm_size,dropout_p,attribute_mappings_compare,token_object_mappings_compare):annotate{name='object_token_' .. i}
+      local object_token_vector_flat_select, object_token_vector_flat_compare = add_and_compute_token_vector(inputs,t_inp_size,
+            v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select, attribute_mappings_compare, token_object_mappings_compare)
       -- reshaping
       local object_token_vector_select = nn.View(-1,1):setNumInputDims(1)(object_token_vector_flat_select)
       local object_token_vector_compare = nn.View(-1,1):setNumInputDims(1)(object_token_vector_flat_compare)
