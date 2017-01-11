@@ -1,4 +1,4 @@
-local PeekWithRate, parent = torch.class('nn.Peek2File', 'nn.Module')
+local PeekWithRate, parent = torch.class('nn.PeekWithRate', 'nn.Module')
 
 function PeekWithRate:__init(name, print_frequency, print_type)
   self.name = name
