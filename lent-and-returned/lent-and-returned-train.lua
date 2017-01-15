@@ -138,6 +138,7 @@ dofile('model.lua')
 dofile('model-memnet.lua')
 dofile('model-with-germans-change.lua')
 dofile('model_matrix.lua')
+dofile('model-for-counting.lua')
 
 print('reading the data processing file')
 dofile('data-less-RAM.lua')
@@ -185,6 +186,7 @@ if (opt.optimization_method=="sgd") then
 else -- currently only alternative is adam
    optimization_parameters = {
       learningRate = opt.learning_rate,
+      weightDecay = opt.weight_decay
    }
 end
 
@@ -275,7 +277,16 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices') 
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)
-				
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
+   model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.candidate_cardinality,
+        opt.new_cell_nonlinearity,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)				
 else
    print("wrong model name, program will die")
 end
