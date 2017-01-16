@@ -200,6 +200,7 @@ function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,m
    -- table to collect all attribute mappings, to be shared
    local attribute_mappings = {}
 
+   local create_entity_metric_table = {}
    -- first, we process the query, mapping it onto multimodal space
 
    -- the first attribute in the query
@@ -231,10 +232,11 @@ function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,m
    local token_object_mappings = {}
 
    -- now we call a function to process the object tokens and return an entity matrix
-   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings)--,shareList)
+   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings, create_entity_metric_table)--,shareList)
 
    -- we are done processing input attributes, so we add their parameter list to the list of parameters to be shared
    table.insert(shareList,attribute_mappings)
+   table.insert(shareList, create_entity_metric_table)
 
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
