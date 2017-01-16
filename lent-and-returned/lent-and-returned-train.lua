@@ -283,7 +283,6 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
         opt.multimodal_size,
         opt.input_sequence_cardinality,
         opt.candidate_cardinality,
-        opt.new_cell_nonlinearity,
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)				
