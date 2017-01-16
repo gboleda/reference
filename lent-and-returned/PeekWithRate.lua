@@ -10,7 +10,7 @@ end
 function PeekWithRate:updateOutput(input)
   self.iteration = self.iteration + 1
   if (self.iteration % self.print_frequency == 0) then
-    print(self.name)
+    print(self.name .. " " .. self.iteration)
     local sizeString = input:size(1)
     local num_e = input:size(1)
     if input:dim() > 1 then
