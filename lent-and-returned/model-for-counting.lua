@@ -1,4 +1,5 @@
-function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, att_mappings_table) --, share_table)
+require('PeekWithRate')
+function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, att_mappings_table, metric_mapping_table) --, share_table)
    -- this function builds an entity matrix with as many rows as input
    -- tokens, although some row might be 0 vectors because the
    -- corresponding input information is mapped to existing entity
@@ -55,14 +56,20 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
 
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
+      local metric_entity = nn.LinearNB(mm_size, mm_size)(entity_matrix_table[i-1])
+      table.insert(metric_mapping_table, metric_entity)
+      
       local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)
-      ({entity_matrix_table[i-1],object_token_vector})
+      ({metric_entity,object_token_vector})
 
       -- computing the old-entity mass value as max of input vector
       -- cells followed by a transformation that ensures that it is
       -- between 0 and 1
+      
       local raw_old_entity_mass=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix):annotate{name='raw_old_entity_mass_' .. i}
+      raw_old_entity_mass = nn.PeekWithRate('raw keeping entity', 1000, 2)(raw_old_entity_mass)
       local normalized_old_entity_mass = nn.ReLU()(nn.Tanh()(raw_old_entity_mass))
+      normalized_old_entity_mass = nn.PeekWithRate('keeping entity', 1000, 2)(normalized_old_entity_mass)
       -- now, we concatenate the similarity profile with a new cell,
       -- given by 1 - normalized_old_entity_mass
       local normalized_new_entity_mass = nn.AddConstant(1,false)(nn.MulConstant(-1,false)(normalized_old_entity_mass))
@@ -107,6 +114,8 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
 
    -- table to collect all attribute mappings, to be shared
    local attribute_mappings = {}
+   
+   local create_entity_metric_table = {}
 
    -- first, we process the query, mapping it onto multimodal space
 
@@ -139,11 +148,12 @@ function entity_prediction_image_att_shared_neprob_counting(t_inp_size,v_inp_siz
    local token_object_mappings = {}
 
    -- now we call a function to process the object tokens and return an entity matrix
-   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings)--,shareList)
+   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings, create_entity_metric_table)--,shareList)
 
    -- we are done processing input attributes and objects, so we add their parameter list to the list of parameters to be shared
    table.insert(shareList,attribute_mappings)
    table.insert(shareList,token_object_mappings)
+   table.insert(shareList, create_entity_metric_table)
    
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
@@ -231,7 +241,8 @@ function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,m
    -- obtain an entity-to-query similarity profile, that we softmax
    -- normalize (note Views needed to get right shapes, and rescaling
    -- by temperature)
-   local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({stable_entity_matrix,query}))
+   local entity_query_metric = nn.LinearNB(mm_size, mm_size)(stable_entity_matrix)
+   local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_query_metric,query}))
    local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
    local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
 
@@ -240,7 +251,8 @@ function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,m
    -- vectors in the entity library (weights= similarity profile, such
    -- that we will return the entity that is most similar to the
    -- query) (we get a matrix of such vectors because of mini-batches)
-   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,stable_entity_matrix})
+   local entity_retrieval_metric = nn.LinearNB(mm_size, mm_size)(stable_entity_matrix)
+   local retrieved_entity_matrix = nn.MM(false,false)({entity_retrieval_metric,stable_entity_matrix})
    
    -- now we call the return_entity_image_shared function to obtain a softmax
    -- over candidate images
