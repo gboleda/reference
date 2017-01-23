@@ -33,6 +33,7 @@ function return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,
 end
 
 function return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,in_table,imageMappings_table,retrieved_entity_matrix)
+   retrieved_entity_matrix = nn.LinearNB(mm_size, mm_size)(retrieved_entity_matrix)
    local image_candidate_vectors={}
    -- image candidates vectors
    for i=1,candidate_cardinality do
