@@ -14,11 +14,11 @@ function PeekWithRate:updateOutput(input)
     local sizeString = input:size(1)
     local num_e = input:size(1)
     if input:dim() > 1 then
-      sizeString = sizeString .. "," input:size(2)
+      sizeString = sizeString .. "," .. input:size(2)
       num_e = num_e * input:size(2)
     end
     if input:dim() > 2 then
-      sizeString = sizeString .. "," input:size(3)
+      sizeString = sizeString .. "," .. input:size(3)
       num_e = num_e * input:size(3)
     end
     if (self.print_type == 1) then -- print size
