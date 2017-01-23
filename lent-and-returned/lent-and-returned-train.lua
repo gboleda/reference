@@ -277,6 +277,16 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices') 
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices_and_sparsity') then
+   model=entity_prediction_image_att_shared_neprob_with_2_matrices_and_sparsity(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.candidate_cardinality,
+        opt.new_cell_nonlinearity,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
 elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
    model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
         v_input_size,

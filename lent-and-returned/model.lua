@@ -159,11 +159,11 @@ function entity_prediction_image_att_shared(t_inp_size,v_inp_size,mm_size,inp_se
       -- average or max or sum by default of input vector cells...
       local raw_cumulative_similarity=nil
       if (opt.new_mass_aggregation_method=='mean') then
-	 raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
+	       raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix)
       elseif (opt.new_mass_aggregation_method=='max') then
-	 raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
+	       raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
       else -- sum by default
-	 raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
+	       raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix)
       end
       raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
       local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}

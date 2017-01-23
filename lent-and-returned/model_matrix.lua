@@ -119,9 +119,11 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
          raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix_select)
       end
       raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
+      raw_cumulative_similarity = nn.PeekWithRate('raw_cumulative_similarity_', 1000, 2)(raw_cumulative_similarity)
       local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
       table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
-
+      raw_new_entity_mass = nn.PeekWithRate('raw new entity', 1000, 2)(raw_new_entity_mass)
+      
       -- passing through nonlinearity if requested
       local transformed_new_entity_mass=nil
       if (nonlinearity=='none') then
@@ -201,6 +203,118 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
 
 
    -- wrapping up the model
+   local model = nn.gModule(inputs,{output_distribution})
+   
+   -- following code is adapted from MeMNN 
+   if (use_cuda ~= 0) then
+      model:cuda()
+   end
+   -- IMPORTANT! do weight sharing after model is in cuda
+   for i = 1,#shareList do
+      local m1 = shareList[i][1].data.module
+      for j = 2,#shareList[i] do
+          local m2 = shareList[i][j].data.module
+          m2:share(m1,'weight','bias','gradWeight','gradBias')
+      end
+   end
+   return model
+
+end
+
+
+function entity_prediction_image_att_shared_neprob_with_2_matrices_and_sparsity(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda)
+
+   local inputs = {}
+
+   -- a table to store tables of connections that must share parameters
+   local shareList = {}
+
+   local attribute_mappings_select= {}
+   local attribute_mappings_compare = {}
+
+   local query_attribute_1 = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,attribute_mappings_compare)
+   local query_attribute_2 = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,attribute_mappings_compare)
+   local query_object = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,{})
+
+   local query = nn.View(-1,1):setNumInputDims(1)(nn.CAddTable()({query_attribute_1,query_attribute_2,query_object}):annotate{name='query'})
+
+   local entity_matrix_table_select = {}
+   local entity_matrix_table_compare = {}
+   local token_object_mappings_select = {}
+   local token_object_mappings_compare = {}
+   local raw_new_entity_mass_mappings = {}
+
+   
+   local first_object_token_vector_select, first_object_token_vector_compare = add_and_compute_token_vector(inputs,t_inp_size,
+            v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select, attribute_mappings_compare,token_object_mappings_compare)
+   table.insert(entity_matrix_table_select,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector_select))
+   table.insert(entity_matrix_table_compare,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector_compare))
+
+   for i=2,inp_seq_cardinality do
+      
+      local object_token_vector_flat_select, object_token_vector_flat_compare = add_and_compute_token_vector(inputs,t_inp_size,
+            v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select, attribute_mappings_compare, token_object_mappings_compare)
+      local object_token_vector_select = nn.View(-1,1):setNumInputDims(1)(object_token_vector_flat_select)
+      local object_token_vector_compare = nn.View(-1,1):setNumInputDims(1)(object_token_vector_flat_compare)
+
+      local raw_similarity_profile_to_entity_matrix_select = nn.MM(false,false)({entity_matrix_table_select[i-1],object_token_vector_select})
+
+      local raw_cumulative_similarity=nil
+      if (opt.new_mass_aggregation_method=='mean') then
+        raw_cumulative_similarity=nn.Mean(1,2)(raw_similarity_profile_to_entity_matrix_select)
+      elseif (opt.new_mass_aggregation_method=='max') then
+         raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix_select)
+      else -- sum by default
+         raw_cumulative_similarity = nn.Sum(1,2)(raw_similarity_profile_to_entity_matrix_select)
+      end
+      raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
+      raw_cumulative_similarity = nn.PeekWithRate('raw_cumulative_similarity', 1000, 2)(raw_cumulative_similarity)
+      local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
+      table.insert(raw_new_entity_mass_mappings,raw_new_entity_mass)
+      raw_new_entity_mass = nn.PeekWithRate('raw new entity', 1000, 2)(raw_new_entity_mass)
+      local transformed_new_entity_mass=nil
+      if (nonlinearity=='none') then
+          transformed_new_entity_mass=raw_new_entity_mass
+      else
+          --local nonlinear_hidden_layer = nil
+          if (nonlinearity == 'relu') then
+             transformed_new_entity_mass = nn.ReLU()(raw_new_entity_mass)
+          elseif (nonlinearity == 'tanh') then
+             transformed_new_entity_mass = nn.Tanh()(raw_new_entity_mass)
+          else -- sigmoid is leftover option: if (nonlinearity == 'sigmoid') then
+             transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
+          end
+      end
+      transformed_new_entity_mass = nn.PeekWithRate('create new entity', 1000, 2)(transformed_new_entity_mass)
+
+      local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.JoinTable(1,2)({raw_similarity_profile_to_entity_matrix_select,transformed_new_entity_mass}))):annotate{name='normalized_similarity_profile_' .. i}
+      normalized_similarity_profile = nn.PeekWithRate('normalized_similarity_profile', 1000, 2)(normalized_similarity_profile)
+      local weighted_object_token_vector_matrix_select = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_select}
+      local weighted_object_token_vector_matrix_compare = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_compare}
+
+      entity_matrix_table_select[i]= nn.CAddTable(){
+         nn.Padding(1,1,2)(entity_matrix_table_select[i-1]),weighted_object_token_vector_matrix_select}:annotate{'entity_matrix_table' .. i}
+      entity_matrix_table_compare[i]= nn.CAddTable(){
+         nn.Padding(1,1,2)(entity_matrix_table_compare[i-1]),weighted_object_token_vector_matrix_compare}:annotate{'entity_matrix_table' .. i}
+   end
+
+   table.insert(shareList,attribute_mappings_select)
+   table.insert(shareList,attribute_mappings_compare)
+   table.insert(shareList,raw_new_entity_mass_mappings)
+
+
+   local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix_table_compare[inp_seq_cardinality],query}))
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local query_entity_similarity_profile = nn.View(1,-1):setNumInputDims(1)(nn.SoftMax()(rescaled_query_entity_similarity_profile)):annotate{name='query_entity_similarity_profile'}
+
+   local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,entity_matrix_table_select[inp_seq_cardinality]})
+   
+   local output_distribution=return_entity_image_shared(v_inp_size,mm_size,candidate_cardinality,dropout_p,inputs,token_object_mappings_select,retrieved_entity_matrix)
+   
+   table.insert(shareList,token_object_mappings_select)
+   table.insert(shareList,token_object_mappings_compare)
+
+
    local model = nn.gModule(inputs,{output_distribution})
    
    -- following code is adapted from MeMNN 
