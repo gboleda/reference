@@ -255,6 +255,7 @@ function entity_prediction_image_att_shared_neprob_onion(t_inp_size,v_inp_size,m
    -- query) (we get a matrix of such vectors because of mini-batches)
    
    local retrieved_entity_matrix = nn.MM(false,false)({query_entity_similarity_profile,stable_entity_matrix})
+   retrieved_entity_matrix = nn.PeekWithRate('retrieved_entity_matrix', 1000, 2)(retrieved_entity_matrix)
    
    -- now we call the return_entity_image_shared function to obtain a softmax
    -- over candidate images
