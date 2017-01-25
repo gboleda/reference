@@ -136,7 +136,7 @@ function entity_prediction_image_att_shared_neprob_with_2_matrices(t_inp_size,v_
              transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
           end
       end
-      transformed_new_entity_mass = nn.PeekWithRate('create new entity', 1000, 2)(transformed_new_entity_mass)
+      --transformed_new_entity_mass = nn.PeekWithRate('create new entity', 1000, 2)(transformed_new_entity_mass)
 
       -- now, we concatenate the similarity profile with this new
       -- cell, and normalize
