@@ -489,6 +489,7 @@ local epoch_counter=1
 local continue_training=1
 local previous_validation_loss=math.huge -- high loss, to make sure we are going to "improve" on first epoch
 local non_improving_epochs_count=0
+local min_validation_loss = 1000000
 
 while (continue_training==1) do
 
@@ -572,15 +573,16 @@ while (continue_training==1) do
 	       end
       else 
 	       non_improving_epochs_count=0
+         if (validation_loss < min_validation_loss) then
+            min_validation_loss = validation_loss
+            -- best validation loss so far, save the model
+            if (opt.save_model_to_file ~= '') then
+               print('saving model to file ' .. opt.save_model_to_file)
+               torch.save(opt.save_model_to_file,model)
+            end
+         end
       end
    end
    previous_validation_loss=validation_loss
    epoch_counter=epoch_counter+1
-end
-
--- training is over, if we were asked to save the model to a file, now it's the
--- time to do it
-if (opt.save_model_to_file ~= '') then
-   print('saving model to file ' .. opt.save_model_to_file)
-   torch.save(opt.save_model_to_file,model)
 end
