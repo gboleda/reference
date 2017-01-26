@@ -2,6 +2,9 @@
 
 require('nn')
 require('nngraph')
+require('cutorch')
+require('cunn')
+
 require('../LinearNB') -- for linear mappings without bias
 
 -- ******* options *******
