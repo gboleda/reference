@@ -47,7 +47,8 @@ end
 -- the corresponding input data: words vs images), as well as a nx1
 -- tensor with the gold indices (gold_index_list)
 
-function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardinality,candidate_cardinality)
+function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardinality,candidate_cardinality, use_cuda)
+   use_cuda = use_cuda or 0
    print('reading protocol file ' .. i_file)
 
    -- initializing the data structures to hold the data
@@ -89,6 +90,9 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
    -- query) in the corresponding sequence of tensors in
    -- output_sequence_list
    local gold_index_list = torch.Tensor(data_set_size)
+   if (use_cuda ~= 0) then
+     gold_index_list = gold_index_list:cuda()
+   end
 
    -- now we traverse the trial file, expected to be in format:
    --
@@ -161,6 +165,7 @@ end
 -- the corresponding input data: words vs images), as well as a nx1
 -- tensor with the gold indices
 function create_input_structures_from_table(data_tables,full_gold_index_tensor,target_indices,data_set_size,t_in_size,v_in_size,input_sequence_cardinality,candidate_cardinality,use_cuda)
+   use_cuda = use_cuda or 0
    -- initializing the data structures to hold the data
    local output_tensor_table = {} -- to put data tensors in (will be model input)
 
@@ -171,6 +176,11 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    local query_att1_list = torch.Tensor(data_set_size,t_in_size):fill(0)
    local query_att2_list = torch.Tensor(data_set_size,t_in_size):fill(0)
    local query_object_list = torch.Tensor(data_set_size,t_in_size):fill(0)
+   if (use_cuda ~= 0) then
+      query_att1_list = query_att1_list:cuda()
+      query_att2_list = query_att2_list:cuda()
+      query_object_list = query_object_list:cuda()
+   end
 
    -- input_sequence_list is an 2*input_sequence_cardinality table of
    -- alternating data_set_size x t_in_size and data_set_size x
@@ -182,18 +192,30 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    -- table are aligned with the order of the queries in the query
    -- lists
    local input_sequence_list={}
-   for i=1,input_sequence_cardinality do
-      table.insert(input_sequence_list,torch.Tensor(data_set_size,t_in_size):fill(0))
-      table.insert(input_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
+   local output_sequence_list={}
+   if (cuda == 0) then
+     for i=1,input_sequence_cardinality do
+        table.insert(input_sequence_list,torch.Tensor(data_set_size,t_in_size):fill(0))
+        table.insert(input_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
+     end
+     for i=1,candidate_cardinality do
+        table.insert(output_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
+     end
+   else 
+     for i=1,input_sequence_cardinality do
+        table.insert(input_sequence_list,torch.Tensor(data_set_size,t_in_size):fill(0):cuda())
+        table.insert(input_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0):cuda())
+     end
+     for i=1,candidate_cardinality do
+        table.insert(output_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0):cuda())
+     end
    end
 
    -- output_sequence_list is a candidate_cardinality table of
    -- data_set_size x v_in_size tensors containing the set of images the
    -- model will have to choose from
-   local output_sequence_list={}
-   for i=1,candidate_cardinality do
-      table.insert(output_sequence_list,torch.Tensor(data_set_size,v_in_size):fill(0))
-   end
+   
+   
 
    
    -- gold_index_list contains, for each sample, the index of correct
