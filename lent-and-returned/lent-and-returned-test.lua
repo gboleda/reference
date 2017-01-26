@@ -53,6 +53,12 @@ if (opt.use_cuda ~= 0) then
    criterion:cuda()
 end
 
+-- ****** model reading ******
+
+print('reading in the model from file ' .. opt.model_file)
+local model = torch.load(opt.model_file)
+model:evaluate() -- turns off dropout in test mode
+
 -- ******* validation function ******* (test function, copied every time from lent-and-returned-train.lua)
 
 function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batches,valid_set_size,left_out_samples,debug_file_prefix,guesses_file)
@@ -198,9 +204,9 @@ dofile('data-less-RAM.lua')
 -- ****** input data reading ******
 
 -- reading word embeddings
-word_embeddings,t_input_size=load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
+word_embeddings,t_input_size=load_embeddings(opt.word_embedding_file,opt.normalize_embeddings, opt.use_cuda)
 --reading image embeddings
-image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
+image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings, opt.use_cuda)
 -- reading in the test data
 input_table,gold_index_list=
    create_data_tables_from_file(
@@ -208,12 +214,6 @@ input_table,gold_index_list=
       opt.test_set_size,
       opt.input_sequence_cardinality,
       opt.candidate_cardinality)
-
--- ****** model reading ******
-
-print('reading in the model from file ' .. opt.model_file)
-model = torch.load(opt.model_file)
-model:evaluate() -- turns off dropout in test mode
 
 -- *** computing model predictions and accuracy
 

@@ -1,8 +1,8 @@
 
 -- returns an embeddings table and the dimensionality of the
 -- embeddings
-function load_embeddings(i_file,normalize_embeddings)
-
+function load_embeddings(i_file,normalize_embeddings, use_cuda)
+   use_cuda = use_cuda or 0
    print('reading embeddings file ' .. i_file)
    local embeddings={}
    local current_data={}
@@ -13,21 +13,25 @@ function load_embeddings(i_file,normalize_embeddings)
       if rest then lines = lines .. rest .. '\n' end
       -- traversing current chunk line by line
       for current_line in lines:gmatch("[^\n]+") do
-	 -- the following somewhat cumbersome expression will remove
-	 -- leading and trailing space, and load all data onto a table
-	 current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
-	 -- first field is id, other fields are embedding vector
-	 embeddings[current_data[1]]=
-	    torch.Tensor({unpack(current_data,2,#current_data)})
-	 -- normalize if we are asked to
-	 if (normalize_embeddings>0) then
-	    local embedding_norm = torch.norm(embeddings[current_data[1]])
-	    -- avoid dividing by 0
-	    if (embedding_norm~=0) then
-	       embeddings[current_data[1]]=
-		  embeddings[current_data[1]]/embedding_norm
-	    end
-	 end
+      	 -- the following somewhat cumbersome expression will remove
+      	 -- leading and trailing space, and load all data onto a table
+      	 current_data = current_line:gsub("^%s*(.-)%s*$", "%1"):split("[ \t]+")
+      	 -- first field is id, other fields are embedding vector
+      	 local tensor = torch.Tensor({unpack(current_data,2,#current_data)})
+      	 if (use_cuda ~= 0) then
+      	   tensor = tensor:cuda()
+      	 end
+      	 embeddings[current_data[1]]= tensor
+      	    
+      	 -- normalize if we are asked to
+      	 if (normalize_embeddings>0) then
+      	    local embedding_norm = torch.norm(embeddings[current_data[1]])
+      	    -- avoid dividing by 0
+      	    if (embedding_norm~=0) then
+      	       embeddings[current_data[1]]=
+      		  embeddings[current_data[1]]/embedding_norm
+      	    end
+      	 end
       end
    end
    f.close()
