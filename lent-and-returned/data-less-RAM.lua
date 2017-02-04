@@ -180,6 +180,7 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
       query_att1_list = query_att1_list:cuda()
       query_att2_list = query_att2_list:cuda()
       query_object_list = query_object_list:cuda()
+      full_gold_index_tensor = full_gold_index_tensor:cuda()
    end
 
    -- input_sequence_list is an 2*input_sequence_cardinality table of
@@ -223,8 +224,11 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    -- corresponding to the composite meaning denoted by the linguistic
    -- query) in the corresponding sequence of tensors in
    -- output_sequence_list
-   local gold_index_list = torch.Tensor(data_set_size)
    
+   local gold_index_list = torch.Tensor(data_set_size)
+   if (use_cuda ~= 0) then
+      gold_index_list = gold_index_list:cuda()
+   end
    -- now we traverse the indices populating the various tables with
    -- the corresponding contents
 
@@ -293,6 +297,7 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
 	 table.insert(output_tensor_table,output_sequence_list[j])
       end
    end
-   
+   for i, tensor in ipairs(output_tensor_table) do
+   end
    return output_tensor_table, gold_index_list
 end

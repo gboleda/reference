@@ -87,6 +87,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    end
    
    -- reading the validation data batch by batch
+   print("valid_batch_size: " .. valid_batch_size)
+   print("opt.use_cuda: " .. opt.use_cuda)
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
       batch_valid_input_representations_table,batch_valid_gold_index_tensor=
 	 create_input_structures_from_table(input_table,
@@ -223,6 +225,6 @@ input_table,gold_index_list=
 print('computing model predictions and accuracy on test data')
 
 local _,acc=
-   test(input_table,gold_index_list,opt.test_set_size,1,opt.test_set_size,0,output_debug_prefix,output_guesses_file)
+   test(input_table,gold_index_list,100, opt.test_set_size / 100,opt.test_set_size,0,output_debug_prefix,output_guesses_file)
 
 print('test set accuracy is ' .. acc)
