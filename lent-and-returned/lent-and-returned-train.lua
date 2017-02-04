@@ -26,6 +26,7 @@ cmd:option('--input_sequence_cardinality', 0, 'number of object tokens (exposure
 cmd:option('--candidate_cardinality', 0, 'number of images in the output set to pick from')
 cmd:option('--training_set_size',0, 'training set size')
 cmd:option('--validation_set_size',0, 'validation set size')
+cmd:option('--load_model','', 'whether to resume training a saved the model')
 -- cmd:option('--test_set_size',0, 'test set size')
 
 -- options concerning output processing
@@ -79,6 +80,10 @@ cmd:option('--mini_batch_size',10,'mini batch size')
 -- cmd:option('--test_mode',0, 'if set to 1, the test set will be evaluated; requires a binary of a model produced in training mode (the default mode)')
 -- cmd:option('--model_file','', 'name of file storing trained model')
 
+local function file_exists(name)
+   local f=io.open(name,"r")
+   if f~=nil then io.close(f) return true else return false end
+end
 
 
 opt = cmd:parse(arg or {})
@@ -204,96 +209,101 @@ end
 -- NB: gpu processing should be done within the model building
 -- functions, to make sure weight sharing is handled correctly!
 
-if (opt.model=='ff') then
-   model=ff(t_input_size,
-	    v_input_size,
-	    opt.multimodal_size,
-	    opt.hidden_size,
-	    opt.input_sequence_cardinality,
-	    opt.candidate_cardinality,
-	    opt.hidden_count,
-	    opt.ff_nonlinearity,
-	    opt.dropout_prob,
-	    opt.use_cuda)
-elseif (opt.model=='rnn') then
-   model=rnn(t_input_size,
-	     v_input_size,
-	     opt.multimodal_size,
-	     opt.summary_size,
-	     opt.hidden_size,
-	     opt.input_sequence_cardinality,
-	     opt.candidate_cardinality,
-	     opt.hidden_count,
-	     opt.ff_nonlinearity,
-	     opt.dropout_prob,
-	     opt.use_cuda)
-elseif (opt.model=='mm_one_matrix') then
-   model=mm_one_matrix(t_input_size,
-		       v_input_size,
-		       opt.multimodal_size,
-		       opt.input_sequence_cardinality,
-		       opt.candidate_cardinality,
-		       opt.nhops,
-		       opt.temperature,
-		       opt.dropout_prob,
-		       opt.use_cuda)
-elseif (opt.model=='mm_standard') then
-   model=mm_standard(t_input_size,
-		       v_input_size,
-		       opt.multimodal_size,
-		       opt.input_sequence_cardinality,
-		       opt.candidate_cardinality,
-		       opt.nhops,
-		       opt.temperature,
-		       opt.dropout_prob,
-		       opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared') then
-   model=entity_prediction_image_att_shared(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared_neprob') then
-   model=entity_prediction_image_att_shared_neprob(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices') then
-   model=entity_prediction_image_att_shared_neprob_with_2_matrices(t_input_size,
-        v_input_size,
-        opt.multimodal_size,
-        opt.input_sequence_cardinality,
-        opt.candidate_cardinality,
-        opt.new_cell_nonlinearity,
-        opt.temperature,
-        opt.dropout_prob,
-        opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
-   model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
-        v_input_size,
-        opt.multimodal_size,
-        opt.input_sequence_cardinality,
-        opt.candidate_cardinality,
-        opt.temperature,
-        opt.dropout_prob,
-        opt.use_cuda)				
+if (opt.load_model ~= '' and file_exists(opt.load_model)) then
+  model=torch.load(opt.load_model)
+  model_weights, model_weight_gradients = model:getParameters()
 else
-   print("wrong model name, program will die")
+  if (opt.model=='ff') then
+     model=ff(t_input_size,
+  	    v_input_size,
+  	    opt.multimodal_size,
+  	    opt.hidden_size,
+  	    opt.input_sequence_cardinality,
+  	    opt.candidate_cardinality,
+  	    opt.hidden_count,
+  	    opt.ff_nonlinearity,
+  	    opt.dropout_prob,
+  	    opt.use_cuda)
+  elseif (opt.model=='rnn') then
+     model=rnn(t_input_size,
+  	     v_input_size,
+  	     opt.multimodal_size,
+  	     opt.summary_size,
+  	     opt.hidden_size,
+  	     opt.input_sequence_cardinality,
+  	     opt.candidate_cardinality,
+  	     opt.hidden_count,
+  	     opt.ff_nonlinearity,
+  	     opt.dropout_prob,
+  	     opt.use_cuda)
+  elseif (opt.model=='mm_one_matrix') then
+     model=mm_one_matrix(t_input_size,
+  		       v_input_size,
+  		       opt.multimodal_size,
+  		       opt.input_sequence_cardinality,
+  		       opt.candidate_cardinality,
+  		       opt.nhops,
+  		       opt.temperature,
+  		       opt.dropout_prob,
+  		       opt.use_cuda)
+  elseif (opt.model=='mm_standard') then
+     model=mm_standard(t_input_size,
+  		       v_input_size,
+  		       opt.multimodal_size,
+  		       opt.input_sequence_cardinality,
+  		       opt.candidate_cardinality,
+  		       opt.nhops,
+  		       opt.temperature,
+  		       opt.dropout_prob,
+  		       opt.use_cuda)
+  elseif (opt.model=='entity_prediction_image_att_shared') then
+     model=entity_prediction_image_att_shared(t_input_size,
+  				v_input_size,
+  				opt.multimodal_size,
+  				opt.input_sequence_cardinality,
+  				opt.candidate_cardinality,
+  				opt.new_cell_nonlinearity,
+  				opt.temperature,
+  				opt.dropout_prob,
+  				opt.use_cuda)
+  elseif (opt.model=='entity_prediction_image_att_shared_neprob') then
+     model=entity_prediction_image_att_shared_neprob(t_input_size,
+  				v_input_size,
+  				opt.multimodal_size,
+  				opt.input_sequence_cardinality,
+  				opt.candidate_cardinality,
+  				opt.new_cell_nonlinearity,
+  				opt.temperature,
+  				opt.dropout_prob,
+  				opt.use_cuda)
+  elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices') then
+     model=entity_prediction_image_att_shared_neprob_with_2_matrices(t_input_size,
+          v_input_size,
+          opt.multimodal_size,
+          opt.input_sequence_cardinality,
+          opt.candidate_cardinality,
+          opt.new_cell_nonlinearity,
+          opt.temperature,
+          opt.dropout_prob,
+          opt.use_cuda)
+  elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
+     model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
+          v_input_size,
+          opt.multimodal_size,
+          opt.input_sequence_cardinality,
+          opt.candidate_cardinality,
+          opt.temperature,
+          opt.dropout_prob,
+          opt.use_cuda)				
+  else
+     print("wrong model name, program will die")
+  end
+  
+  -- getting pointers to the model weights and their gradient
+  model_weights, model_weight_gradients = model:getParameters()
+  -- initializing
+  model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
 end
-
--- getting pointers to the model weights and their gradient
-model_weights, model_weight_gradients = model:getParameters()
--- initializing
-model_weights:uniform(-0.08, 0.08) -- small uniform numbers, taken from char-rnn
 
 -- following to remain here as an example even when we don't use it,
 -- if we need a model for initialization of specific parameters!
