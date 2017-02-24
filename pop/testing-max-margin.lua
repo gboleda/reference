@@ -5,7 +5,7 @@
 require('nn')
 require('nngraph')
 require('optim')
-require('LinearNB') -- for linear mappings without bias
+require('../LinearNB') -- for linear mappings without bias
 
 print('reading the model file')
 dofile('models.lua')

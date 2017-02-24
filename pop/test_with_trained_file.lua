@@ -2,7 +2,7 @@
 
 require('nngraph')
 require('math')
-require('LinearNB') -- for linear mappings without bias
+require('../LinearNB') -- for linear mappings without bias
 
 cmd = torch.CmdLine()
 -- model file to be read

@@ -1,10 +1,6 @@
-test.sh
-max-margin-test.lua
 .DS_Store
 .RData
 .Rhistory
-bw-tiny-max-margin.model
-change-name.sh
 lent-and-returned/.DS_Store
 lent-and-returned/counting.sh
 lent-and-returned/data-counting.lua
@@ -13,6 +9,4 @@ lent-and-returned/local-train-and-test-model.sh
 lent-and-returned/my-training-tmp.sh
 lent-and-returned/old/
 lent-and-returned/test.lua
-max-thresholds
-maxdiff-thresholds
-old/
+
