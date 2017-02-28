@@ -72,7 +72,6 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
       -- a ROW vector
       normalized_similarity_profile = nn.MM(false, false){nn.View(-1,i - 1, 1)(normalized_similarity_profile),nn.View(-1,1, 1)(normalized_old_entity_mass)}
       normalized_similarity_profile = (nn.JoinTable(2,2)({nn.View(-1,i - 1)(normalized_similarity_profile),normalized_new_entity_mass})):annotate{name='normalized_similarity_profile_' .. i}
-      --normalized_similarity_profile = nn.Peek("final weight", true)(normalized_similarity_profile)
       -- we now create a matrix that has, on each ROW, the current
       -- token vector, multiplied by the corresponding entry on the
       -- normalized similarity profile (including, in the final row,
