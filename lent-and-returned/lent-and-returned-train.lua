@@ -135,10 +135,14 @@ end
 
 print('reading the models file')
 dofile('model.lua')
+dofile('model-rnn.lua')
+dofile('model-feedforward.lua')
 dofile('model-memnet.lua')
-dofile('model-with-germans-change.lua')
-dofile('model_matrix.lua')
+dofile('model-dire.lua')
+dofile('model_2matrices.lua')
 dofile('model-for-counting.lua')
+dofile('model-onion.lua')
+dofile('model-dire-without-new-entity-prob.lua')
 
 print('reading the data processing file')
 dofile('data-less-RAM.lua')
