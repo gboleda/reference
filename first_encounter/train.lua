@@ -135,7 +135,7 @@ end
 
 print('reading the models file')
 dofile('model_utils.lua')
-dofile('dire-model.lua')
+dofile('dire_model.lua')
 dofile('tanh_lru_model.lua')
 
 print('reading the data processing file')
@@ -208,7 +208,6 @@ if (opt.model=='entity_prediction_image_att_shared_neprob') then
         opt.multimodal_size,
         opt.input_sequence_cardinality,
         opt.candidate_cardinality,
-        opt.new_cell_nonlinearity,
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)
@@ -331,9 +330,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- note conversions to long if we're not using cuda as only tensor
       -- type
       if (opt.use_cuda~=0) then
-   hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor,model_guesses_indices))
+        hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
       else
-   hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
+        hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
       end
 
       -- debug from here

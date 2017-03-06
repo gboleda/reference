@@ -1,4 +1,4 @@
-function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity_matrix, shared_raw_new_entity_mapping)
+function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, shared_raw_new_entity_mapping)
     -- computing the new-entity cell value
     -- average or max or sum by default of input vector cells...
     local raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)

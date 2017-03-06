@@ -1,4 +1,4 @@
-function compute_lru_model_weight_distribution(raw_similarity_profile_to_entity_matrix, new_entity_mappings_table)
+function compute_lru_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, new_entity_mappings_table)
       -- computing the old-entity mass value as max of input vector
       -- cells followed by a transformation that ensures that it is
       -- between 0 and 1
