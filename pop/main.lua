@@ -3,7 +3,7 @@
 require('nn')
 require('nngraph')
 require('optim')
-require('LinearNB') -- for linear mappings without bias
+require('../LinearNB') -- for linear mappings without bias
 
 -- making sure random is random!
 math.randomseed(os.time())

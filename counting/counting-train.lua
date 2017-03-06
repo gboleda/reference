@@ -4,7 +4,6 @@ require('nn')
 require('nngraph')
 require('optim')
 require('../LinearNB') -- for linear mappings without bias
-require('../Peek') 
 
 -- making sure random is random!
 math.randomseed(os.time())
@@ -34,14 +33,15 @@ cmd:option('--output_debug_prefix','','if this prefix is defined, at the end of 
 -- output files
 cmd:option('--output_guesses_file','','if this file is defined, we print to it, as separated space-delimited columns, the index the model returned as its guess for each test item, and the corresponding log probability')
 
+-- option concerning task
+cmd:option('--task','tracking','task; currently supported: tracking (default), counting')
+
 -- model parameters
-cmd:option('--model','ff','name of model to be used (currently supported: ff (default), rnn, mm_one_matrix, mm_standard, entity_prediction_image_att_shared,entity_prediction_image_att_shared_neprob)')
+cmd:option('--model','ff','name of model to be used (currently supported: ff (default), rnn, mm_one_matrix, mm_standard, entity_prediction_image_att_shared,entity_prediction_image_att_shared_neprob,entity_prediction_image_att_shared_neprob_counting)')
 cmd:option('--multimodal_size',300, 'size of multimodal vectors')
 cmd:option('--dropout_prob',0,'probability of each parameter being dropped, i.e having its commensurate output element be zero; default: equivalent to no dropout; recommended value in torch documentation: 0.5')
 cmd:option('--attribute_dropout_prob',0,'probability of each attribute parameter being dropped, i.e having its commensurate output element be zero, for models that allow a different dropout probability for attributes to avoid the perfect matching problem; default: equivalent to no dropout')
 ---- entity_prediction parameters
-cmd:option('--new_mass_aggregation_method','sum','when computing the new entity mass cell, use as input sum (default), max or mean of values in similarity profile')
-cmd:option('--new_cell_nonlinearity','none','nonlinear transformation of mapping to predict new cell (options: none (default), sigmoid, relu, tanh)')
 cmd:option('--temperature',1,'before transforming the vector of dot products of the query with the object tokens into a softmax, multiply by temperature: the larger the temperature, the more skewed the probability distribution produced by the softmax (default: no rescaling)')
 ---- ff and rnn parameters
 cmd:option('--hidden_size',300, 'size of hidden layer')
@@ -135,14 +135,9 @@ end
 
 print('reading the models file')
 dofile('model.lua')
-dofile('model-rnn.lua')
-dofile('model-feedforward.lua')
 dofile('model-memnet.lua')
-dofile('model-dire.lua')
-dofile('model_2matrices.lua')
+dofile('model-with-germans-change.lua')
 dofile('model-for-counting.lua')
-dofile('model-onion.lua')
-dofile('model-dire-without-new-entity-prob.lua')
 
 print('reading the data processing file')
 dofile('data-less-RAM.lua')
@@ -190,108 +185,113 @@ if (opt.optimization_method=="sgd") then
 else -- currently only alternative is adam
    optimization_parameters = {
       learningRate = opt.learning_rate,
-      weightDecay = opt.weight_decay
    }
 end
 
 print('assembling and initializing the model')
 
--- setting up the criterion
--- we use the negative log-likelihood criterion (which expects LOG probabilities
--- as model outputs!)
-local criterion=nn.ClassNLLCriterion()
-if (opt.use_cuda ~= 0) then
-   criterion:cuda()
-end
-
--- initializing the model
+-- initializing the model and setting up the criterion
+-- done jointly because criterion depends on task
 -- NB: gpu processing should be done within the model building
 -- functions, to make sure weight sharing is handled correctly!
-
-if (opt.model=='ff') then
-   model=ff(t_input_size,
-	    v_input_size,
-	    opt.multimodal_size,
-	    opt.hidden_size,
-	    opt.input_sequence_cardinality,
-	    opt.candidate_cardinality,
-	    opt.hidden_count,
-	    opt.ff_nonlinearity,
-	    opt.dropout_prob,
-	    opt.use_cuda)
-elseif (opt.model=='rnn') then
-   model=rnn(t_input_size,
-	     v_input_size,
-	     opt.multimodal_size,
-	     opt.summary_size,
-	     opt.hidden_size,
-	     opt.input_sequence_cardinality,
-	     opt.candidate_cardinality,
-	     opt.hidden_count,
-	     opt.ff_nonlinearity,
-	     opt.dropout_prob,
-	     opt.use_cuda)
-elseif (opt.model=='mm_one_matrix') then
-   model=mm_one_matrix(t_input_size,
-		       v_input_size,
-		       opt.multimodal_size,
-		       opt.input_sequence_cardinality,
-		       opt.candidate_cardinality,
-		       opt.nhops,
-		       opt.temperature,
-		       opt.dropout_prob,
-		       opt.use_cuda)
-elseif (opt.model=='mm_standard') then
-   model=mm_standard(t_input_size,
-		       v_input_size,
-		       opt.multimodal_size,
-		       opt.input_sequence_cardinality,
-		       opt.candidate_cardinality,
-		       opt.nhops,
-		       opt.temperature,
-		       opt.dropout_prob,
-		       opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared') then
-   model=entity_prediction_image_att_shared(t_input_size,
+local criterion=nil
+if (opt.task=='tracking') then
+   -- for the tracking task, we use the negative log-likelihood criterion (which expects LOG probabilities
+   -- as model outputs!)
+   criterion=nn.ClassNLLCriterion()
+   if (opt.model=='ff') then
+      model=ff(t_input_size,
+	       v_input_size,
+	       opt.multimodal_size,
+	       opt.hidden_size,
+	       opt.input_sequence_cardinality,
+	       opt.candidate_cardinality,
+	       opt.hidden_count,
+	       opt.ff_nonlinearity,
+	       opt.dropout_prob,
+	       opt.use_cuda)
+   elseif (opt.model=='rnn') then
+      model=rnn(t_input_size,
+		v_input_size,
+		opt.multimodal_size,
+		opt.summary_size,
+		opt.hidden_size,
+		opt.input_sequence_cardinality,
+		opt.candidate_cardinality,
+		opt.hidden_count,
+		opt.ff_nonlinearity,
+		opt.dropout_prob,
+		opt.use_cuda)
+   elseif (opt.model=='mm_one_matrix') then
+      model=mm_one_matrix(t_input_size,
+			  v_input_size,
+			  opt.multimodal_size,
+			  opt.input_sequence_cardinality,
+			  opt.candidate_cardinality,
+			  opt.nhops,
+			  opt.temperature,
+			  opt.dropout_prob,
+			  opt.use_cuda)
+   elseif (opt.model=='mm_standard') then
+      model=mm_standard(t_input_size,
+			v_input_size,
+			opt.multimodal_size,
+			opt.input_sequence_cardinality,
+			opt.candidate_cardinality,
+			opt.nhops,
+			opt.temperature,
+			opt.dropout_prob,
+			opt.use_cuda)
+   elseif (opt.model=='entity_prediction_image_att_shared') then
+      model=entity_prediction_image_att_shared(t_input_size,
+					       v_input_size,
+					       opt.multimodal_size,
+					       opt.input_sequence_cardinality,
+					       opt.candidate_cardinality,
+					       opt.new_cell_nonlinearity,
+					       opt.temperature,
+					       opt.dropout_prob,
+					       opt.use_cuda)
+   elseif (opt.model=='entity_prediction_image_att_shared_neprob') then
+      model=entity_prediction_image_att_shared_neprob(t_input_size,
+						      v_input_size,
+						      opt.multimodal_size,
+						      opt.input_sequence_cardinality,
+						      opt.candidate_cardinality,
+						      opt.new_cell_nonlinearity,
+						      opt.temperature,
+						      opt.dropout_prob,
+						      opt.use_cuda)
+   elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
+      model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
+							    v_input_size,
+							    opt.multimodal_size,
+							    opt.input_sequence_cardinality,
+							    opt.candidate_cardinality,
+							    opt.temperature,
+							    opt.dropout_prob,
+							    opt.use_cuda)
+   else error("wrong model name: " .. opt.model)
+   end
+elseif(opt.task=='counting') then
+   criterion=nn.MSECriterion()
+   if (opt.model=='entity_prediction_image_att_shared_neprob_counting') then
+      model=entity_prediction_image_att_shared_neprob_counting(t_input_size,
 				v_input_size,
 				opt.multimodal_size,
 				opt.input_sequence_cardinality,
 				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
 				opt.temperature,
 				opt.dropout_prob,
 				opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared_neprob') then
-   model=entity_prediction_image_att_shared_neprob(t_input_size,
-				v_input_size,
-				opt.multimodal_size,
-				opt.input_sequence_cardinality,
-				opt.candidate_cardinality,
-				opt.new_cell_nonlinearity,
-				opt.temperature,
-				opt.dropout_prob,
-				opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared_neprob_with_2_matrices') then
-   model=entity_prediction_image_att_shared_neprob_with_2_matrices(t_input_size,
-        v_input_size,
-        opt.multimodal_size,
-        opt.input_sequence_cardinality,
-        opt.candidate_cardinality,
-        opt.new_cell_nonlinearity,
-        opt.temperature,
-        opt.dropout_prob,
-        opt.use_cuda)
-elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
-   model=entity_prediction_image_att_shared_neprob_onion(t_input_size,
-        v_input_size,
-        opt.multimodal_size,
-        opt.input_sequence_cardinality,
-        opt.candidate_cardinality,
-        opt.temperature,
-        opt.dropout_prob,
-        opt.use_cuda)				
+   else
+      error("wrong model name: " .. opt.model)
+   end
 else
-   print("wrong model name, program will die")
+   error("wrong task name: " .. opt.task)
+end
+if (opt.use_cuda ~= 0) then
+   criterion:cuda()
 end
 
 -- getting pointers to the model weights and their gradient
@@ -349,7 +349,6 @@ feval = function(x)
    return loss,model_weight_gradients
 end
 
-
 -- ******* validation function *******
 function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batches,valid_set_size,left_out_samples,debug_file_prefix,guesses_file)
 
@@ -395,18 +394,21 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- accumulate hit counts for accuracy
       -- to compute accuracy, we first retrieve list of indices of image
       -- vectors that were preferred by the model
-      local model_guesses_probs,model_guesses_indices=torch.max(model_prediction,2)
-      -- we then count how often these guesses are the same as the gold
-      -- note conversions to long if we're not using cuda as only tensor
-      -- type
-      if (opt.use_cuda~=0) then
-	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor,model_guesses_indices))
-      else
-	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
-      end
+      local model_guesses_probs,model_guesses_indices=torch.max(model_prediction,2) -- leaving this outside the next if cause it's needed for debug files below
 
+      if (opt.task=='tracking') then
+	 -- we then count how often these guesses are the same as the gold
+	 -- note conversions to long if we're not using cuda as only tensor
+	 -- type
+	 if (opt.use_cuda~=0) then
+	    hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
+	 else
+	    hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
+	 end
+      end
+      
       -- debug from here
-      if debug_file_prefix and (opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob') then -- debug_file_prefix will be nil if debug mode is not on
+      if debug_file_prefix and (opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob' or opt.model=='entity_prediction_image_att_shared_neprob_counting' or opt.model=='entity_prediction_image_att_shared_neprob_onion') then -- debug_file_prefix will be nil if debug mode is not on
 
 	 local nodes = model:listModules()[1]['forwardnodes']
 
@@ -419,13 +421,13 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	 end
 
 	 local similarity_profiles_table = {}
-	 local raw_cumulative_similarity_table = {}
+	 local raw_old_entity_table = {}
 	 for i=2,opt.input_sequence_cardinality do
 	    for _,node in ipairs(nodes) do
 	       if node.data.annotations.name=='normalized_similarity_profile_' .. i then
 		  table.insert(similarity_profiles_table,node.data.module.output)
-	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
-		  table.insert(raw_cumulative_similarity_table,node.data.module.output)
+	       elseif node.data.annotations.name=='raw_old_entity_mass_' .. i then
+		  table.insert(raw_old_entity_table,node.data.module.output)
 	       end
 	       if node.data.annotations.name=='query_entity_similarity_profile' then
 		  query_entity_similarity_profile_tensor=node.data.module.output
@@ -444,13 +446,19 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	       f1:write(" ")
 	    end
 	    f1:write("\n")
-	    for j=1,#raw_cumulative_similarity_table do
+	    for j=1,#raw_old_entity_table do
 	       local ref_position = j+1
-	       f2:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
+	       f2:write("::",ref_position,":: ",raw_old_entity_table[j][i][1]," ")
 	    end
 	    f2:write("\n")
-	    for k=1,query_entity_similarity_profile_tensor:size(3) do
-	       f3:write(query_entity_similarity_profile_tensor[i][1][k]," ")
+	    if (opt.model=='entity_prediction_image_att_shared_neprob_counting') then -- this is actually a tensor with a special format!
+	       for k=1,query_entity_similarity_profile_tensor:size(2) do
+		  f3:write(query_entity_similarity_profile_tensor[i][k][1]," ")
+	       end
+	    else
+	       for k=1,query_entity_similarity_profile_tensor:size(3) do
+		  f3:write(query_entity_similarity_profile_tensor[i][1][k]," ")
+	       end
 	    end
 	    f3:write("\n")
 	 end
@@ -465,7 +473,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       end
       
       valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
-   end -- end while
+   end -- end while going through batches
 
    if debug_file_prefix then
       f1:flush(); f1.close()
@@ -477,8 +485,14 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    end
    
    local average_loss=cumulative_loss/number_of_valid_batches
-   local accuracy=hit_count/(valid_set_size-left_out_samples) -- we discount the samples that don't go into the batches
-   return average_loss,accuracy
+   local quality=0
+   if (opt.task=='counting') then
+      quality=torch.sqrt(average_loss) -- for counting, we report RMSE
+   elseif(opt.task=='tracking') then
+      quality=hit_count/(valid_set_size-left_out_samples) -- for tracking, we report accuracy; we discount the samples that don't go into the batches
+      -- not doing else + error cause we already checked about tasks in the main
+   end
+   return average_loss,quality
 end
 
 
@@ -539,26 +553,26 @@ while (continue_training==1) do
 
    -- debug information
    local output_debug_prefix_epoch = nil
-   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' then -- if output_debug_prefix is not nil, we are in debug mode
+   if output_debug_prefix and opt.model=='entity_prediction_image_att_shared' or opt.model=='entity_prediction_image_att_shared_neprob_counting' or opt.model=='entity_prediction_image_att_shared_neprob_onion' then -- if output_debug_prefix is not nil, we are in debug mode
       output_debug_prefix_epoch = output_debug_prefix .. epoch_counter  -- will be used in test function (called below)
-      -- this is done once per epoch:
-      local nodes = model:listModules()[1]['forwardnodes']
-      for _,node in ipairs(nodes) do
-	 if node.data.annotations.name=='raw_new_entity_mass_2' then
-	    print('new mass bias is ' .. node.data.module.bias[1])
-	    print('new mass weight is ' .. node.data.module.weight[1][1])
-	 end
-      end
+      -- -- this is done once per epoch:
+      -- local nodes = model:listModules()[1]['forwardnodes']
+      -- for _,node in ipairs(nodes) do
+      -- 	 if node.data.annotations.name=='raw_new_entity_mass_2' then
+      -- 	    print('new mass bias is ' .. node.data.module.bias[1])
+      -- 	    print('new mass weight is ' .. node.data.module.weight[1][1])
+      -- 	 end
+      -- end
       print("writing further info for debugging/analysis in file(s) with prefix " .. output_debug_prefix_epoch) -- done in test function (called below)
    end
 
    -- validation
    model:evaluate() -- for dropout; get into evaluation mode (all weights used)
 
-   local validation_loss,validation_accuracy =
+   local validation_loss,validation_quality =
       test(validation_input_table,validation_gold_index_list,opt.mini_batch_size,number_of_valid_batches,opt.validation_set_size,left_out_training_samples_size,output_debug_prefix_epoch,output_guesses_file)
    print('validation loss: ' .. validation_loss)
-   print('validation accuracy: ' .. validation_accuracy)
+   print('validation quality (accuracy for tracking, RMSE for counting): ' .. validation_quality)
 
    -- if we are below or at the minumum number of required epochs, we
    -- won't stop no matter what
@@ -570,12 +584,12 @@ while (continue_training==1) do
       -- max_validation_lull epochs
    elseif (epoch_counter>opt.min_epochs) then
       if (validation_loss>=previous_validation_loss) then
-	       non_improving_epochs_count=non_improving_epochs_count+1
-	       if (non_improving_epochs_count>=opt.max_validation_lull) then
-	         continue_training=0
-	       end
+	 non_improving_epochs_count=non_improving_epochs_count+1
+	 if (non_improving_epochs_count>=opt.max_validation_lull) then
+	    continue_training=0
+	 end
       else 
-	       non_improving_epochs_count=0
+	 non_improving_epochs_count=0
       end
    end
    previous_validation_loss=validation_loss
