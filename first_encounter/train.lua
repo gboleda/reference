@@ -23,7 +23,6 @@ cmd:option('--word_embedding_file','','word embedding file (with word vectors; f
 cmd:option('--image_embedding_file','','image embedding file (with visual vectors; first field word and image, rest of the fields vector values)')
 cmd:option('--normalize_embeddings',0, 'whether to normalize word and image representations, set to 1 to normalize')
 cmd:option('--input_sequence_cardinality', 0, 'number of object tokens (exposures) in a sequence')
-cmd:option('--candidate_cardinality', 0, 'number of images in the output set to pick from')
 cmd:option('--training_set_size',0, 'training set size')
 cmd:option('--validation_set_size',0, 'validation set size')
 -- cmd:option('--test_set_size',0, 'test set size')
@@ -149,25 +148,25 @@ dofile('data-less-RAM.lua')
 print('preparing the data')
 
 -- reading word embeddings
-word_embeddings,t_input_size=load_embeddings(opt.word_embedding_file,opt.normalize_embeddings)
+t_input_size = 100
+word_embeddings = create_onehots(t_input_size, 'a_')
 --reading image embeddings
-image_embeddings,v_input_size=load_embeddings(opt.image_embedding_file,opt.normalize_embeddings)
+v_input_size = 1000
+image_embeddings = create_onehots(v_input_size, 'e_')
 
 -- reading in the training data
 training_input_table,training_gold_index_list=
    create_data_tables_from_file(
       opt.protocol_prefix .. ".train",
       opt.training_set_size,
-      opt.input_sequence_cardinality,
-      opt.candidate_cardinality)
+      opt.input_sequence_cardinality)
 
 -- reading in the validation data
 validation_input_table,validation_gold_index_list=
    create_data_tables_from_file(
       opt.protocol_prefix .. ".valid",
       opt.validation_set_size,
-      opt.input_sequence_cardinality,
-      opt.candidate_cardinality)
+      opt.input_sequence_cardinality)
 
 -- ******* initializations *******
 
@@ -207,7 +206,6 @@ if (opt.model=='entity_prediction_image_att_shared_neprob') then
         v_input_size,
         opt.multimodal_size,
         opt.input_sequence_cardinality,
-        opt.candidate_cardinality,
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)
@@ -216,7 +214,6 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_onion') then
         v_input_size,
         opt.multimodal_size,
         opt.input_sequence_cardinality,
-        opt.candidate_cardinality,
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)       
@@ -312,7 +309,6 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               t_input_size,
               v_input_size,
               opt.input_sequence_cardinality,
-              opt.candidate_cardinality,
               opt.use_cuda)
 
       -- passing current test samples through the trained network
@@ -448,7 +444,6 @@ while (continue_training==1) do
               t_input_size,
               v_input_size,
               opt.input_sequence_cardinality,
-              opt.candidate_cardinality,
               opt.use_cuda)
 
       local losses={}

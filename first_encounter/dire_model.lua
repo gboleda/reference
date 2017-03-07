@@ -22,6 +22,6 @@ function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity
     return normalized_similarity_profile
 end
 
-function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality, temperature, dropout_p,use_cuda)
-    return build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality, compute_dire_model_weight_distribution, temperature, dropout_p,use_cuda)
+function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
