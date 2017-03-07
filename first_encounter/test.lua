@@ -151,10 +151,10 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	       f2:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
 	    end
 	    f2:write("\n")
-	    for k=1,query_entity_similarity_profile_tensor:size(3) do
+	    --[[for k=1,query_entity_similarity_profile_tensor:size(3) do
 	       f3:write(query_entity_similarity_profile_tensor[i][1][k]," ")
 	    end
-	    f3:write("\n")
+	    f3:write("\n")]]--
 	 end
       end
       -- debug to here
