@@ -152,7 +152,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	    end
 	    f2:write("\n")
 	    for k=1,query_entity_similarity_profile_tensor:size(2) do
-	       f3:write(query_entity_similarity_profile_tensor[i][k]," ")
+	       f3:write(math.exp(query_entity_similarity_profile_tensor[i][k])," ")
 	    end
 	    f3:write("\n")
 	 end
