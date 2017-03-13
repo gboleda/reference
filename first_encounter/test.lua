@@ -88,7 +88,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    
    -- reading the validation data batch by batch
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
-      batch_valid_input_representations_table,batch_valid_gold_index_tensor=
+      local batch_valid_input_representations_table,batch_valid_gold_index_tensor=
 	 create_input_structures_from_table(input_table,
 					    gold_index_list,
 					    torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1),
@@ -115,7 +115,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       if (opt.use_cuda~=0) then
 	       hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
       else
-	     hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
+	       hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
       end
 
       -- debug from here
@@ -215,6 +215,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       for i = 1,12 do
          f5:write("" .. i .. ":" ..correct_count[i][2] .. " ")
       end
+      f5:write("\n:hitcount:\n")
+      f5:write(hit_count)
       f5:flush()
       f5:close()
    end
