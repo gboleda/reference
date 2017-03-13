@@ -178,9 +178,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	    choice_count[model_guesses_indices[i][1]] = choice_count[model_guesses_indices[i][1]] + 1
       	    gold_count[gold_index_list[i]] = gold_count[gold_index_list[i]] + 1
       	    if model_guesses_indices[i][1] == gold_index_list[i] then
-      	      correct_count[i][1] = correct_count[i][1] + 1
+      	      correct_count[gold_index_list[i]][1] = correct_count[gold_index_list[i]][1] + 1
       	    else
-      	      correct_count[i][2] = correct_count[i][2] + 1
+      	      correct_count[gold_index_list[i]][2] = correct_count[gold_index_list[i]][2] + 1
       	    end
       	 end
       end
