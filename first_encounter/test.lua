@@ -59,13 +59,22 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    local cumulative_loss = 0
    local cumulative_accuracy = 0
    local hit_count=0
+   local choice_count = {}
+   local gold_count = {}
+   local correct_count = {}
+   for i=1,12 do
+     choice_count[i] = 0
+     gold_count[i] = 0
+     correct_count[i] = {0,0}
+   end
 
    -- preparing for debug
-   local f1=nil; local f2=nil; local f3=nil;
+   local f1=nil; local f2=nil; local f3=nil; local f5=nil;
    if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
       f1 = io.open(debug_file_prefix .. '.simprofiles',"w")
       f2 = io.open(debug_file_prefix .. '.cumsims',"w")
       f3 = io.open(debug_file_prefix .. '.querysims',"w")
+      f5 = io.open(debug_file_prefix .. '.guess_statistics',"w")
    end
 
    -- preparing for model guesses
@@ -102,70 +111,76 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- note conversions to long if we're not using cuda as only tensor
       -- type
       if (opt.use_cuda~=0) then
-	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
+	       hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices))
       else
-	 hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
+	     hit_count=hit_count+torch.sum(torch.eq(batch_valid_gold_index_tensor:long(),model_guesses_indices))
       end
 
       -- debug from here
       if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
 
-	 local nodes = model:listModules()[1]['forwardnodes']
-
-	 -- collect debug information
-	 local query_entity_similarity_profile_tensor = nil
-	 for _,node in ipairs(nodes) do
-	    if node.data.annotations.name=='query_entity_similarity_profile' then
-	       query_entity_similarity_profile_tensor=node.data.module.output
-	    end
-	 end
-
-	 local similarity_profiles_table = {}
-	 local raw_cumulative_similarity_table = {}
-	 for i=2,opt.input_sequence_cardinality do
-	    for _,node in ipairs(nodes) do
-	       if node.data.annotations.name=='normalized_similarity_profile_' .. i then
-		        table.insert(similarity_profiles_table,node.data.module.output)
-	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
-		        table.insert(raw_cumulative_similarity_table,node.data.module.output)
-	       end
-	       if node.data.annotations.name=='query_entity_similarity_profile' then
-		        query_entity_similarity_profile_tensor=node.data.module.output
-	       end
-	    end
-	 end
-
-	 -- write debug information to files
-	 for i=1,valid_batch_size do
-	    for j=1,#similarity_profiles_table do
-	       local ref_position = j+1
-	       f1:write("::",ref_position,"::")
-	       for k=1,similarity_profiles_table[j]:size(2) do
-		        f1:write(" ",similarity_profiles_table[j][i][k])
-	       end
-	       f1:write(" ")
-	    end
-	    f1:write("\n")
-	    for j=1,#raw_cumulative_similarity_table do
-	       local ref_position = j+1
-	       f2:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
-	    end
-	    f2:write("\n")
-	    for k=1,query_entity_similarity_profile_tensor:size(2) do
-	       f3:write(math.exp(query_entity_similarity_profile_tensor[i][k])," ")
-	    end
-	    f3:write("|| " .. model_guesses_indices[i][1] .. " || " .. gold_index_list[i])
-	    f3: write()
-	    f3:write("\n")
-	 end
+      	 local nodes = model:listModules()[1]['forwardnodes']
+      
+      	 -- collect debug information
+      	 local query_entity_similarity_profile_tensor = nil
+      	 for _,node in ipairs(nodes) do
+      	    if node.data.annotations.name=='query_entity_similarity_profile' then
+      	       query_entity_similarity_profile_tensor=node.data.module.output
+      	    end
+      	 end
+      
+      	 local similarity_profiles_table = {}
+      	 local raw_cumulative_similarity_table = {}
+      	 for i=2,opt.input_sequence_cardinality do
+      	    for _,node in ipairs(nodes) do
+      	       if node.data.annotations.name=='normalized_similarity_profile_' .. i then
+      		        table.insert(similarity_profiles_table,node.data.module.output)
+      	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
+      		        table.insert(raw_cumulative_similarity_table,node.data.module.output)
+      	       end
+      	       if node.data.annotations.name=='query_entity_similarity_profile' then
+      		        query_entity_similarity_profile_tensor=node.data.module.output
+      	       end
+      	    end
+      	 end
+      
+      	 -- write debug information to files
+      	 for i=1,valid_batch_size do
+      	    for j=1,#similarity_profiles_table do
+      	       local ref_position = j+1
+      	       f1:write("::",ref_position,"::")
+      	       for k=1,similarity_profiles_table[j]:size(2) do
+      		        f1:write(" ",similarity_profiles_table[j][i][k])
+      	       end
+      	       f1:write(" ")
+      	    end
+      	    f1:write("\n")
+      	    for j=1,#raw_cumulative_similarity_table do
+      	       local ref_position = j+1
+      	       f2:write("::",ref_position,":: ",raw_cumulative_similarity_table[j][i][1]," ")
+      	    end
+      	    f2:write("\n")
+      	    for k=1,query_entity_similarity_profile_tensor:size(2) do
+      	       f3:write(math.exp(query_entity_similarity_profile_tensor[i][k])," ")
+      	    end
+      	    f3:write("|| " .. model_guesses_indices[i][1] .. " || " .. gold_index_list[i])
+      	    f3:write("\n")
+      	 end
       end
       -- debug to here
       
       -- write model guesses and probabilities to file
       if guesses_file then
-	 for i=1,model_guesses_probs:size(1) do
-	    f4:write(model_guesses_indices[i][1]," ",model_guesses_probs[i][1],"\n")
-	 end
+         for i=1,model_guesses_probs:size(1) do
+      	    f4:write(model_guesses_indices[i][1]," ",model_guesses_probs[i][1],"\n")
+      	    choice_count[model_guesses_indices[i][1]] = choice_count[model_guesses_indices[i][1]] + 1
+      	    gold_count[gold_index_list[i]] = gold_count[gold_index_list[i]] + 1
+      	    if model_guesses_indices[i][1] == gold_index_list[i] then
+      	      correct_count[i][1] = correct_count[i][1] + 1
+      	    else
+      	      correct_count[i][2] = correct_count[i][2] + 1
+      	    end
+      	 end
       end
       
       valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
@@ -179,6 +194,29 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    if guesses_file then
       f4:flush(); f4.close()
    end
+   
+   -- print statistics
+   if debug_file_prefix then
+      f5:write("choices:\n")
+      for i = 1,12 do
+         f5:write("" .. i .. ":" ..choice_count[i] .. " ")
+      end
+      f5:write("\n:gold:\n")
+      for i = 1,12 do
+         f5:write("" .. i .. ":" ..gold_count[i] .. " ")
+      end
+      f5:write("\n:correct:\n")
+      for i = 1,12 do
+         f5:write("" .. i .. ":" ..correct_count[i][1] .. " ")
+      end
+      f5:write("\n:wrong:\n")
+      for i = 1,12 do
+         f5:write("" .. i .. ":" ..correct_count[i][2] .. " ")
+      end
+      f5:flush()
+      f5:close()
+   end
+   
    
    local average_loss=cumulative_loss/number_of_valid_batches
    local accuracy=hit_count/(valid_set_size-left_out_samples) -- we discount the samples that don't go into the batches
