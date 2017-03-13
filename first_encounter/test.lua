@@ -65,7 +65,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    for i=1,12 do
      choice_count[i] = 0
      gold_count[i] = 0
-     correct_count[i] = {0,0}
+     correct_count[i] = {}
+     correct_count[i][1] = 0
+     correct_count[i][2] = 0
    end
 
    -- preparing for debug
