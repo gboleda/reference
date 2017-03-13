@@ -110,6 +110,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- to compute accuracy, we first retrieve list of indices of image
       -- vectors that were preferred by the model
       local model_guesses_probs,model_guesses_indices=torch.max(model_prediction,2)
+      local is_correct = torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices)
       -- we then count how often these guesses are the same as the gold
       -- note conversions to long if we're not using cuda as only tensor
       -- type
@@ -166,7 +167,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	    for k=1,query_entity_similarity_profile_tensor:size(2) do
       	       f3:write(math.exp(query_entity_similarity_profile_tensor[i][k])," ")
       	    end
-      	    f3:write("|| " .. model_guesses_indices[i][1] .. " || " .. gold_index_list[i])
+      	    f3:write("|| " .. model_guesses_indices[i][1] .. " || " .. gold_index_list[i] .. " || " .. is_correct[i])
       	    f3:write("\n")
       	 end
       end
@@ -174,7 +175,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       
       -- write model guesses and probabilities to file
       if guesses_file then
-         for i=1,model_guesses_probs:size(1) do
+         for i=1,model_guesses_indices:size(1) do
       	    f4:write(model_guesses_indices[i][1]," ",model_guesses_probs[i][1],"\n")
       	    choice_count[model_guesses_indices[i][1]] = choice_count[model_guesses_indices[i][1]] + 1
       	    gold_count[gold_index_list[i]] = gold_count[gold_index_list[i]] + 1
