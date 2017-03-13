@@ -125,12 +125,12 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	 for i=2,opt.input_sequence_cardinality do
 	    for _,node in ipairs(nodes) do
 	       if node.data.annotations.name=='normalized_similarity_profile_' .. i then
-		  table.insert(similarity_profiles_table,node.data.module.output)
+		        table.insert(similarity_profiles_table,node.data.module.output)
 	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
-		  table.insert(raw_cumulative_similarity_table,node.data.module.output)
+		        table.insert(raw_cumulative_similarity_table,node.data.module.output)
 	       end
 	       if node.data.annotations.name=='query_entity_similarity_profile' then
-		  query_entity_similarity_profile_tensor=node.data.module.output
+		        query_entity_similarity_profile_tensor=node.data.module.output
 	       end
 	    end
 	 end
@@ -141,7 +141,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	       local ref_position = j+1
 	       f1:write("::",ref_position,"::")
 	       for k=1,similarity_profiles_table[j]:size(2) do
-		  f1:write(" ",similarity_profiles_table[j][i][k])
+		        f1:write(" ",similarity_profiles_table[j][i][k])
 	       end
 	       f1:write(" ")
 	    end
@@ -154,6 +154,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
 	    for k=1,query_entity_similarity_profile_tensor:size(2) do
 	       f3:write(math.exp(query_entity_similarity_profile_tensor[i][k])," ")
 	    end
+	    f3:write("|| " .. model_guesses_indices[i][1] .. " || " .. gold_index_list[i])
+	    f3: write()
 	    f3:write("\n")
 	 end
       end
