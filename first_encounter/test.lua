@@ -218,7 +218,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       
       if (att_mapping ~= nil) then
         f6:write("att sims average:\n")
-        local sim_m = torch.mm(att_mapping:transpose(), att_mapping)
+        local sim_m = torch.mm(att_mapping:transpose(1,2), att_mapping)
         local sum = sim_m:sum() - sim_m:trace()
         f6:write(sum / (100 * 99))
         local sim_square = torch.cmul(sim_m, sim_m)
@@ -231,7 +231,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       end
       if (entity_maping ~= nil) then
         f6:write("entity sims average:\n")
-        local sim_m = torch.mm(entity_maping:transpose(), entity_maping)
+        local sim_m = torch.mm(entity_maping:transpose(1,2), entity_maping)
         local sum = sim_m:sum() - sim_m:trace()
         f6:write(sum / (1000 * 999))
         local sim_square = torch.cmul(sim_m, sim_m)
