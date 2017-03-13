@@ -72,12 +72,13 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    end
 
    -- preparing for debug
-   local f1=nil; local f2=nil; local f3=nil; local f5=nil;
+   local f1=nil; local f2=nil; local f3=nil; local f5=nil; local f6=nil;
    if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
       f1 = io.open(debug_file_prefix .. '.simprofiles',"w")
       f2 = io.open(debug_file_prefix .. '.cumsims',"w")
       f3 = io.open(debug_file_prefix .. '.querysims',"w")
       f5 = io.open(debug_file_prefix .. '.guess_statistics',"w")
+      f6 = io.open(debug_file_prefix .. '.mapping',"w")
    end
 
    -- preparing for model guesses
@@ -87,6 +88,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       f4 = io.open(guesses_file,"w")
    end
    
+   local entity_maping = nil
+   local att_mapping = nil
    -- reading the validation data batch by batch
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
       local batch_valid_input_representations_table,batch_valid_gold_index_tensor=
@@ -122,6 +125,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       end
 
       -- debug from here
+      
+      
       if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
 
       	 local nodes = model:listModules()[1]['forwardnodes']
@@ -133,6 +138,28 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	       query_entity_similarity_profile_tensor=node.data.module.output
       	    end
       	 end
+      	 
+      	 if (entity_maping == nil) then
+        	 for _,node in ipairs(nodes) do
+              if torch.class.istype(node.data.module.name,'nn.LinearNB') then
+                 if (node.data.module.weight:size(2) == 1000) then
+                    entity_maping = node.data.module.weight
+                    break
+                 end
+              end
+           end
+         end
+         
+         if (att_mapping == nil) then
+           for _,node in ipairs(nodes) do
+              if torch.class.istype(node.data.module.name,'nn.LinearNB') then
+                 if (node.data.module.weight:size(2) == 100) then
+                    att_mapping = node.data.module.weight
+                    break
+                 end
+              end
+           end
+         end
       
       	 local similarity_profiles_table = {}
       	 local raw_cumulative_similarity_table = {}
@@ -187,6 +214,33 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	      correct_count[gold_index_tensor[i]][2] = correct_count[gold_index_tensor[i]][2] + 1
       	    end
       	 end
+      end
+      
+      if (att_mapping ~= nil) then
+        f6:write("att sims average:\n")
+        local sim_m = torch.mm(att_mapping:transpose(), att_mapping)
+        local sum = sim_m:sum() - sim_m:trace()
+        f6:write(sum / (100 * 99))
+        local sim_square = torch.cmul(sim_m, sim_m)
+        local square_sum = sim_square:sum() - sim_square:trace()
+        f6:write("\natt sims square average:\n")
+        f6:write(square_sum / (100 * 99))
+        f6:write("\nave att length:\n")
+        f6:write(sim_square:trace() / 100)
+        f6:write("\n")
+      end
+      if (entity_maping ~= nil) then
+        f6:write("entity sims average:\n")
+        local sim_m = torch.mm(entity_maping:transpose(), entity_maping)
+        local sum = sim_m:sum() - sim_m:trace()
+        f6:write(sum / (1000 * 999))
+        local sim_square = torch.cmul(sim_m, sim_m)
+        local square_sum = sim_square:sum() - sim_square:trace()
+        f6:write("\nentity sims square average:\n")
+        f6:write(square_sum / (1000 * 999))
+        f6:write("\nave entity length:\n")
+        f6:write(sim_square:trace() / 1000)
+        f6:write("\n")
       end
       
       valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
