@@ -141,7 +141,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	 
       	 if (entity_maping == nil) then
         	 for _,node in ipairs(nodes) do
-              if torch.class.istype(node.data.module.name,'nn.LinearNB') then
+              if torch.isTypeOf(node.data.module.name,'nn.LinearNB') then
                  if (node.data.module.weight:size(2) == 1000) then
                     entity_maping = node.data.module.weight
                     break
@@ -152,7 +152,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
          
          if (att_mapping == nil) then
            for _,node in ipairs(nodes) do
-              if torch.class.istype(node.data.module.name,'nn.LinearNB') then
+              if torch.isTypeOf(node.data.module.name,'nn.LinearNB') then
                  if (node.data.module.weight:size(2) == 100) then
                     att_mapping = node.data.module.weight
                     break
