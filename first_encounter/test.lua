@@ -262,7 +262,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
         f6:write("\natt sims square average:\n")
         f6:write(square_sum / (100 * 99))
         f6:write("\nave att length:\n")
-        f6:write(sim_square:trace() / 100)
+        f6:write(sim_m:trace() / 100)
         f6:write("\n")
       end
       if (entity_maping ~= nil) then
@@ -275,7 +275,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
         f6:write("\nentity sims square average:\n")
         f6:write(square_sum / (1000 * 999))
         f6:write("\nave entity length:\n")
-        f6:write(sim_square:trace() / 1000)
+        f6:write(sim_m:trace() / 1000)
         f6:write("\n")
       end
       f6:flush()
