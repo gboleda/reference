@@ -179,7 +179,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	    f4:write(model_guesses_indices[i][1]," ",model_guesses_probs[i][1],"\n")
       	    choice_count[model_guesses_indices[i][1]] = choice_count[model_guesses_indices[i][1]] + 1
       	    gold_count[gold_index_list[i]] = gold_count[gold_index_list[i]] + 1
-      	    if model_guesses_indices[i][1] == gold_index_list[i] then
+      	    if is_correct[i] == 1 then
       	      hit_count2 = hit_count2 + 1
       	      correct_count[gold_index_list[i]][1] = correct_count[gold_index_list[i]][1] + 1
       	    else
