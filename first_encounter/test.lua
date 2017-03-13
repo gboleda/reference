@@ -59,6 +59,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    local cumulative_loss = 0
    local cumulative_accuracy = 0
    local hit_count=0
+   local hit_count2 = 0
    local choice_count = {}
    local gold_count = {}
    local correct_count = {}
@@ -89,7 +90,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    -- reading the validation data batch by batch
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
       local batch_valid_input_representations_table,batch_valid_gold_index_tensor=
-	 create_input_structures_from_table(input_table,
+	         create_input_structures_from_table(input_table,
 					    gold_index_list,
 					    torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1),
 					    valid_batch_size,
@@ -178,6 +179,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	    choice_count[model_guesses_indices[i][1]] = choice_count[model_guesses_indices[i][1]] + 1
       	    gold_count[gold_index_list[i]] = gold_count[gold_index_list[i]] + 1
       	    if model_guesses_indices[i][1] == gold_index_list[i] then
+      	      hit_count2 = hit_count2 + 1
       	      correct_count[gold_index_list[i]][1] = correct_count[gold_index_list[i]][1] + 1
       	    else
       	      correct_count[gold_index_list[i]][2] = correct_count[gold_index_list[i]][2] + 1
@@ -217,6 +219,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       end
       f5:write("\n:hitcount:\n")
       f5:write(hit_count)
+      f5:write("\t" .. hit_count2)
       f5:flush()
       f5:close()
    end
