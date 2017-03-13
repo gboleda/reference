@@ -111,6 +111,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       -- vectors that were preferred by the model
       local model_guesses_probs,model_guesses_indices=torch.max(model_prediction,2)
       local is_correct = torch.eq(batch_valid_gold_index_tensor:type('torch.CudaLongTensor'),model_guesses_indices)
+      local gold_index_tensor = batch_valid_gold_index_tensor:type('torch.CudaLongTensor')
       -- we then count how often these guesses are the same as the gold
       -- note conversions to long if we're not using cuda as only tensor
       -- type
@@ -178,12 +179,12 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
          for i=1,model_guesses_indices:size(1) do
       	    f4:write(model_guesses_indices[i][1]," ",model_guesses_probs[i][1],"\n")
       	    choice_count[model_guesses_indices[i][1]] = choice_count[model_guesses_indices[i][1]] + 1
-      	    gold_count[gold_index_list[i]] = gold_count[gold_index_list[i]] + 1
+      	    gold_count[gold_index_tensor[i]] = gold_count[gold_index_tensor[i]] + 1
       	    if is_correct[i] == 1 then
       	      hit_count2 = hit_count2 + 1
-      	      correct_count[gold_index_list[i]][1] = correct_count[gold_index_list[i]][1] + 1
+      	      correct_count[gold_index_tensor[i]][1] = correct_count[gold_index_tensor[i]][1] + 1
       	    else
-      	      correct_count[gold_index_list[i]][2] = correct_count[gold_index_list[i]][2] + 1
+      	      correct_count[gold_index_tensor[i]][2] = correct_count[gold_index_tensor[i]][2] + 1
       	    end
       	 end
       end
