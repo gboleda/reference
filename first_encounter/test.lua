@@ -216,33 +216,6 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	 end
       end
       
-      if (att_mapping ~= nil) then
-        f6:write("att sims average:\n")
-        local sim_m = torch.mm(att_mapping:transpose(1,2), att_mapping)
-        local sum = sim_m:sum() - sim_m:trace()
-        f6:write(sum / (100 * 99))
-        local sim_square = torch.cmul(sim_m, sim_m)
-        local square_sum = sim_square:sum() - sim_square:trace()
-        f6:write("\natt sims square average:\n")
-        f6:write(square_sum / (100 * 99))
-        f6:write("\nave att length:\n")
-        f6:write(sim_square:trace() / 100)
-        f6:write("\n")
-      end
-      if (entity_maping ~= nil) then
-        f6:write("entity sims average:\n")
-        local sim_m = torch.mm(entity_maping:transpose(1,2), entity_maping)
-        local sum = sim_m:sum() - sim_m:trace()
-        f6:write(sum / (1000 * 999))
-        local sim_square = torch.cmul(sim_m, sim_m)
-        local square_sum = sim_square:sum() - sim_square:trace()
-        f6:write("\nentity sims square average:\n")
-        f6:write(square_sum / (1000 * 999))
-        f6:write("\nave entity length:\n")
-        f6:write(sim_square:trace() / 1000)
-        f6:write("\n")
-      end
-      
       valid_batch_begin_index=valid_batch_begin_index+valid_batch_size
    end -- end while
 
@@ -278,6 +251,35 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       f5:write("\t" .. hit_count2)
       f5:flush()
       f5:close()
+      
+      if (att_mapping ~= nil) then
+        f6:write("att sims average:\n")
+        local sim_m = torch.mm(att_mapping:transpose(1,2), att_mapping)
+        local sum = sim_m:sum() - sim_m:trace()
+        f6:write(sum / (100 * 99))
+        local sim_square = torch.cmul(sim_m, sim_m)
+        local square_sum = sim_square:sum() - sim_square:trace()
+        f6:write("\natt sims square average:\n")
+        f6:write(square_sum / (100 * 99))
+        f6:write("\nave att length:\n")
+        f6:write(sim_square:trace() / 100)
+        f6:write("\n")
+      end
+      if (entity_maping ~= nil) then
+        f6:write("entity sims average:\n")
+        local sim_m = torch.mm(entity_maping:transpose(1,2), entity_maping)
+        local sum = sim_m:sum() - sim_m:trace()
+        f6:write(sum / (1000 * 999))
+        local sim_square = torch.cmul(sim_m, sim_m)
+        local square_sum = sim_square:sum() - sim_square:trace()
+        f6:write("\nentity sims square average:\n")
+        f6:write(square_sum / (1000 * 999))
+        f6:write("\nave entity length:\n")
+        f6:write(sim_square:trace() / 1000)
+        f6:write("\n")
+      end
+      f6:flush()
+      f6:close()
    end
    
    
