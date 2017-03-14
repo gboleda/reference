@@ -184,7 +184,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
            --   break
            --end
            if (node.data.module ~= nil and torch.isTypeOf(node.data.module,'nn.CAddTable')) then
-             print(node.data.annotations.name)
+             if (node.data.module.output:size(2) == 12) then
+               entity_matrix = node.data.module.output
+             end
            end
          end
       
