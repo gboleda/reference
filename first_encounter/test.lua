@@ -213,7 +213,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	    f3:write("\n")
       	    local lengths = torch.sqrt(torch.cmul(entity_matrix[i],entity_matrix[i]):sum(2))
       	    for k=1,opt.input_sequence_cardinality do
-               f7:write(lengths[k]," ")
+               f7:write("" .. lengths[k][1]," ")
             end
             f7:write("\n")
       	 end
