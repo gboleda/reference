@@ -179,8 +179,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	 
       	 local entity_matrix = nil
       	 for _,node in ipairs(nodes) do
-           if node.data.annotations.name=='entity_matrix_table'..opt.input_sequence_cardinality then
+           if node.data.annotations.name=='entity_matrix_table'..12 then
               entity_matrix = node.data.module.output
+              break
            end
          end
       
