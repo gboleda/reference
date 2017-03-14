@@ -72,13 +72,14 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    end
 
    -- preparing for debug
-   local f1=nil; local f2=nil; local f3=nil; local f5=nil; local f6=nil;
+   local f1=nil; local f2=nil; local f3=nil; local f5=nil; local f6=nil; local f7=nil;
    if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
       f1 = io.open(debug_file_prefix .. '.simprofiles',"w")
       f2 = io.open(debug_file_prefix .. '.cumsims',"w")
       f3 = io.open(debug_file_prefix .. '.querysims',"w")
       f5 = io.open(debug_file_prefix .. '.guess_statistics',"w")
       f6 = io.open(debug_file_prefix .. '.mapping',"w")
+      f7 = io.open(debug_file_prefix .. '.entity_length',"w")
    end
 
    -- preparing for model guesses
@@ -175,6 +176,13 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	       end
       	    end
       	 end
+      	 
+      	 local entity_matrix = nil
+      	 for _,node in ipairs(nodes) do
+           if node.data.annotations.name=='entity_matrix_table'..opt.input_sequence_cardinality then
+              entity_matrix = node.data.module.output
+           end
+         end
       
       	 -- write debug information to files
       	 for i=1,valid_batch_size do
@@ -197,6 +205,11 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       	    end
       	    f3:write("|| " .. model_guesses_indices[i][1] .. " || " .. gold_index_list[i] .. " || " .. is_correct[i])
       	    f3:write("\n")
+      	    local lengths = torch.sqrt(torch.cmul(entity_matrix[i],entity_matrix[i]):sum(2))
+      	    for k=1,opt.input_sequence_cardinality do
+               f7:write(lengths[k]," ")
+            end
+            f7:write("\n")
       	 end
       end
       -- debug to here
