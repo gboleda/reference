@@ -227,8 +227,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
             f7:write("\n")
             -- check entity 1 = entity 4
             local input_index = index_table[i]
-            if ((input_table[4][input_index] == input_table[10][input_index]) or (input_table[6][input_index] == input_table[10][input_index])
-               or (input_table[8][input_index] == input_table[10][input_index])) then
+            --if ((input_table[4][input_index] == input_table[10][input_index]) or (input_table[6][input_index] == input_table[10][input_index])
+            --   or (input_table[8][input_index] == input_table[10][input_index])) then
               f8:write("" .. input_index .. " :: ")
               local match_index = 0
               if (input_table[4][input_index] == input_table[10][input_index]) then
@@ -251,7 +251,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
                 f8:write(" " .. similarity_profiles_table[j][i][k])
               end
               f8:write("\n")
-            end
+            -- end
       	 end
       end
       -- debug to here
