@@ -227,8 +227,18 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
             f7:write("\n")
             -- check entity 1 = entity 4
             local input_index = index_table[i]
-            if (input_table[4][input_index] == input_table[10][input_index]) then
+            if ((input_table[4][input_index] == input_table[10][input_index]) or (input_table[6][input_index] == input_table[10][input_index])
+               or (input_table[8][input_index] == input_table[10][input_index])) then
               f8:write("" .. input_index .. " :: ")
+              local match_index = 0
+              if (input_table[4][input_index] == input_table[10][input_index]) then
+                match_index = 1
+              else if (input_table[6][input_index] == input_table[10][input_index]) then
+                match_index = 2
+              else
+                match_index = 3
+              end
+              f8:write("" .. match_index .. " :: ")
               local j = 3
               local ref_position = j+1
               for k=1,raw_similarity_table[j]:size(2) do
