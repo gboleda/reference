@@ -93,8 +93,8 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    local entity_maping = nil
    local att_mapping = nil
    -- reading the validation data batch by batch
-   local index_table = torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1)
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
+      local index_table = torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1)
       local batch_valid_input_representations_table,batch_valid_gold_index_tensor=
 	         create_input_structures_from_table(input_table,
 					    gold_index_list,
