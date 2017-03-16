@@ -233,7 +233,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               local match_index = 0
               if (input_table[4][input_index] == input_table[10][input_index]) then
                 match_index = 1
-              else if (input_table[6][input_index] == input_table[10][input_index]) then
+              elseif (input_table[6][input_index] == input_table[10][input_index]) then
                 match_index = 2
               else
                 match_index = 3
