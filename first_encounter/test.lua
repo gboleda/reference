@@ -239,7 +239,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               for k=1,similarity_profiles_table[j]:size(2) do
                 f8:write(" " .. similarity_profiles_table[j][i][k])
               end
-              
+              f8:write("\n")
             end
       	 end
       end
@@ -268,7 +268,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       f2:flush(); f2.close()
       f3:flush(); f3.close()
       f7:flush(); f7.close()
-      f8:flush(); f8:close()
+      f8:flush(); f8.close()
    end
    if guesses_file then
       f4:flush(); f4.close()
