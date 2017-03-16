@@ -72,7 +72,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    end
 
    -- preparing for debug
-   local f1=nil; local f2=nil; local f3=nil; local f5=nil; local f6=nil; local f7=nil;
+   local f1=nil; local f2=nil; local f3=nil; local f5=nil; local f6=nil; local f7=nil; local f8=nil
    if debug_file_prefix then -- debug_file_prefix will be nil if debug mode is not on
       f1 = io.open(debug_file_prefix .. '.simprofiles',"w")
       f2 = io.open(debug_file_prefix .. '.cumsims',"w")
@@ -80,6 +80,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       f5 = io.open(debug_file_prefix .. '.guess_statistics',"w")
       f6 = io.open(debug_file_prefix .. '.mapping',"w")
       f7 = io.open(debug_file_prefix .. '.entity_length',"w")
+      f8 = io.open(debug_file_prefix .. '.raw_simprofiles',"w")
    end
 
    -- preparing for model guesses
@@ -92,11 +93,12 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
    local entity_maping = nil
    local att_mapping = nil
    -- reading the validation data batch by batch
+   local index_table = torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1)
    while ((valid_batch_begin_index+valid_batch_size-1)<=valid_set_size) do
       local batch_valid_input_representations_table,batch_valid_gold_index_tensor=
 	         create_input_structures_from_table(input_table,
 					    gold_index_list,
-					    torch.range(valid_batch_begin_index,valid_batch_begin_index+valid_batch_size-1),
+					    index_table,
 					    valid_batch_size,
 					    t_input_size,
 					    v_input_size,
@@ -164,12 +166,14 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       
       	 local similarity_profiles_table = {}
       	 local raw_cumulative_similarity_table = {}
+      	 local raw_similarity_table = {}
       	 for i=2,opt.input_sequence_cardinality do
       	    for _,node in ipairs(nodes) do
       	       if node.data.annotations.name=='normalized_similarity_profile_' .. i then
       		        table.insert(similarity_profiles_table,node.data.module.output)
       	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
       		        table.insert(raw_cumulative_similarity_table,node.data.module.output)
+      		        table.insert(raw_similarity_table,node.data.module.input)
       	       end
       	       if node.data.annotations.name=='query_entity_similarity_profile' then
       		        query_entity_similarity_profile_tensor=node.data.module.output
@@ -216,6 +220,20 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
                f7:write("" .. lengths[k][1]," ")
             end
             f7:write("\n")
+            -- check entity 1 = entity 4
+            local input_index = index_table[i]
+            if (input_table[4][input_index] == input_table[10][input_index]) then
+              f8:write("" .. input_index .. " :: ")
+              local j = 3
+              local ref_position = j+1
+              for k=1,similarity_profiles_table[j]:size(2) do
+                f8:write(" ",similarity_profiles_table[j][i][k])
+              end
+              f8:write(" :: ")
+              for k=1,raw_similarity_table[j]:size(2) do
+                f8:write(" ",raw_similarity_table[j][i][k])
+              end
+            end
       	 end
       end
       -- debug to here
