@@ -173,11 +173,16 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       		        table.insert(similarity_profiles_table,node.data.module.output)
       	       elseif node.data.annotations.name=='raw_cumulative_similarity_' .. i then
       		        table.insert(raw_cumulative_similarity_table,node.data.module.output)
-      		        table.insert(raw_similarity_table,node.data.module.input)
+      		        -- table.insert(raw_similarity_table,node.data.module.input)
       	       end
       	       if node.data.annotations.name=='query_entity_similarity_profile' then
       		        query_entity_similarity_profile_tensor=node.data.module.output
       	       end
+      	       if (node.data.module ~= nil and torch.isTypeOf(node.data.module,'nn.SoftMax')) then
+                 if (node.data.module.output:size(2) == i - 1) then
+                    table.insert(raw_similarity_table,node.data.module.output)
+                 end
+              end
       	    end
       	 end
       	 
@@ -227,7 +232,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               local j = 3
               local ref_position = j+1
               for k=1,raw_similarity_table[j]:size(2) do
-                print(raw_similarity_table[j][i][k])
+                --print(raw_similarity_table[j][i][k])
                 f8:write(" ", raw_similarity_table[j][i][k])
               end
               f8:write(" :: ")
