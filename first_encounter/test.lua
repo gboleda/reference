@@ -261,6 +261,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
       f2:flush(); f2.close()
       f3:flush(); f3.close()
       f7:flush(); f7.close()
+      f8:flush(); f8:close()
    end
    if guesses_file then
       f4:flush(); f4.close()
