@@ -235,8 +235,10 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
                 match_index = 1
               elseif (input_table[6][input_index] == input_table[10][input_index]) then
                 match_index = 2
-              else
+              elseif (input_table[8][input_index] == input_table[10][input_index]) then
                 match_index = 3
+              else
+                match_index = 0
               end
               f8:write("" .. match_index .. " :: ")
               local j = 3
