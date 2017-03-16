@@ -227,7 +227,7 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               local j = 3
               local ref_position = j+1
               for k=1,raw_similarity_table[j]:size(2) do
-                f8:write(" ",raw_similarity_table[j][i][k])
+                f8:write(" " .. raw_similarity_table[j][i][k])
               end
               f8:write(" :: ")
               for k=1,similarity_profiles_table[j]:size(2) do
