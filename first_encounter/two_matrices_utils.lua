@@ -33,7 +33,7 @@ end
 local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, inputs, 
                              attribute_mappings_select, attribute_mappings_compare, token_object_mappings_select, 
                              token_object_mappings_compare, raw_new_entity_mass_mappings,
-                             weight_distribute_function)
+                             weight_distribution_function)
    -- now we process the object tokens
    -- a table to store the entity matrix as it evolves through time
    local entity_matrix_table_select = {}
@@ -65,24 +65,14 @@ local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, in
       -- the previous state of the entity matrix
       local raw_similarity_profile_to_entity_matrix_select = nn.MM(false,false)({entity_matrix_table_select[i-1],object_token_vector_select})
 
-      local normalized_similarity_profile = weight_distribute_function(raw_similarity_profile_to_entity_matrix_select, i, raw_new_entity_mass_mappings)
+      local normalized_similarity_profile = weight_distribution_function(raw_similarity_profile_to_entity_matrix_select, i, raw_new_entity_mass_mappings)
       
-      -- we now create a matrix that has, on each ROW, the current
-      -- token vector, multiplied by the corresponding entry on the
-      -- normalized similarity profile (including, in the final row,
-      -- weighting by the normalized new mass cell): 
-      local weighted_object_token_vector_matrix_select = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_select}
-      local weighted_object_token_vector_matrix_compare = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_compare}
-
-      -- at this point we update the entity matrix by adding the
-      -- weighted versions of the current object token vector to each
-      -- row of it (we pad the bottom of the entity matrix with a zero
-      -- row, so that we can add it to the version of the current
-      -- object token vector that was weighted by the new mass cell
       if (i ~= inp_seq_cardinality) then
+         local weighted_object_token_vector_matrix_select = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_select}
          entity_matrix_table_select[i]= nn.CAddTable(){
             nn.Padding(1,1,2)(entity_matrix_table_select[i-1]),weighted_object_token_vector_matrix_select}:annotate{'entity_matrix_table' .. i}
       end
+      local weighted_object_token_vector_matrix_compare = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_compare}
       entity_matrix_table_compare[i]= nn.CAddTable(){
          nn.Padding(1,1,2)(entity_matrix_table_compare[i-1]),weighted_object_token_vector_matrix_compare}:annotate{'entity_matrix_table' .. i}
    end
@@ -90,7 +80,7 @@ local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, in
 
 end
 
-function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,candidate_cardinality,nonlinearity,temperature,dropout_p,use_cuda, weight_distribute_function)
+function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, weight_distribution_function, temperature, dropout_p,use_cuda)
 
    local inputs = {}
 
@@ -117,9 +107,6 @@ function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_
    -- the query attributes in the query
    local query_attribute_1 = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,attribute_mappings_compare)
    local query_attribute_2 = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,attribute_mappings_compare)
-   -- the object name in the query
-   -- no shared mapping (already a flexibility)
-   local query_object = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,{})
 
    -- putting together the multi-modal query vector by summing the
    -- output of the previous linear transformations, and ensuring it
@@ -129,7 +116,7 @@ function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_
    local entity_matrix_table_select, entity_matrix_table_compare = build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, inputs, 
                              attribute_mappings_select, attribute_mappings_compare, token_object_mappings_select, 
                              token_object_mappings_compare, raw_new_entity_mass_mappings,
-                             weight_distribute_function)
+                             weight_distribution_function)
 
    local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix_table_compare[inp_seq_cardinality],query}))
    local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)

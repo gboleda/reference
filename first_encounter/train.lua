@@ -134,8 +134,10 @@ end
 
 print('reading the models file')
 dofile('model_utils.lua')
+dofile('two_matrices_utils.lua')
 dofile('dire_model.lua')
 dofile('tanh_lru_model.lua')
+dofile('dire_without_new_entity_mapping.lua')
 
 print('reading the data processing file')
 dofile('data-less-RAM.lua')
@@ -203,6 +205,22 @@ end
 
 if (opt.model=='entity_prediction_image_att_shared_neprob') then
    model=entity_prediction_image_att_shared_neprob(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_2matrices') then
+   model=entity_prediction_image_att_shared_neprob_2matrices(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_nomap') then
+   model=entity_prediction_image_att_shared_neprob_nomap(t_input_size,
         v_input_size,
         opt.multimodal_size,
         opt.input_sequence_cardinality,
