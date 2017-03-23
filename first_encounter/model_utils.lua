@@ -138,10 +138,12 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
    end
    -- IMPORTANT! do weight sharing after model is in cuda
    for i = 1,#shareList do
-      local m1 = shareList[i][1].data.module
-      for j = 2,#shareList[i] do
-          local m2 = shareList[i][j].data.module
-          m2:share(m1,'weight','bias','gradWeight','gradBias')
+      if next(shareList[i]) ~= nil then
+         local m1 = shareList[i][1].data.module
+         for j = 2,#shareList[i] do
+            local m2 = shareList[i][j].data.module
+            m2:share(m1,'weight','bias','gradWeight','gradBias')
+         end
       end
    end
    return model
