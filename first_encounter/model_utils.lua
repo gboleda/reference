@@ -1,37 +1,3 @@
-function return_entity_image(v_inp_size,mm_size,candidate_cardinality,dropout_p,in_table,share_table,retrieved_entity_matrix)
-   local image_candidate_vectors={}
-   -- image candidates vectors
-   for i=1,candidate_cardinality do
-      local curr_input = nn.Identity()()
-      table.insert(in_table,curr_input)
-      local image_candidate_vector_do = nn.Dropout(dropout_p)(curr_input)
-      local image_candidate_vector = nn.LinearNB(v_inp_size,mm_size)(image_candidate_vector_do)
-      table.insert(image_candidate_vectors, image_candidate_vector)
-   end
-
-   -- we store image_candidate_vectors within the passed share_table
-   -- since they will share weights with each other (weight sharing is
-   -- performed right before returning a model, since, in case we're
-   -- on gpu's, it has to be done before the model is cudified)
-   table.insert(share_table,image_candidate_vectors)
-   
-   -- reshaping the table into a matrix with a candidate
-   -- vector per row
-   -- ==> second argument to JoinTable tells it that 
-   -- the expected inputs in the table are one-dimensional (the
-   -- candidate vectors), necessary not to confuse 
-   -- it when batches are passed
-   local all_candidate_values=nn.JoinTable(1,1)(image_candidate_vectors)
-   -- again, note setNumInputDims for
-   -- taking the dot product of each candidate vector
-   -- with the retrieved_entity vector
-   local candidate_matrix=nn.View(#image_candidate_vectors,-1):setNumInputDims(1)(all_candidate_values)
-   local dot_vector_split=nn.MM(false,true)({retrieved_entity_matrix,candidate_matrix})
-   local dot_vector=nn.View(-1):setNumInputDims(2)(dot_vector_split) -- reshaping into batch-by-nref matrix for minibatch
-                                                                           -- processing
-   return nn.LogSoftMax()(dot_vector)
-end
-
 function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, 
                              att_mappings_table, new_entity_mappings_table, weight_distribute_function)
    -- this function builds an entity matrix with as many rows as input
@@ -94,15 +60,15 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
       
       local normalized_similarity_profile = weight_distribute_function(raw_similarity_profile_to_entity_matrix, i, new_entity_mappings_table)
 
-      local weighted_object_token_vector_matrix = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector}
+      local weighted_object_token_vector_matrix = nn.MM(false,true)({nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector})
 
       -- at this point we update the entity matrix by adding the
       -- weighted versions of the current object token vector to each
       -- row of it (we pad the bottom of the entity matrix with a zero
       -- row, so that we can add it to the version of the current
       -- object token vector that was weighted by the new mass cell
-      entity_matrix_table[i]= nn.CAddTable(){
-         nn.Padding(1,1,2)(entity_matrix_table[i-1]),weighted_object_token_vector_matrix}:annotate{'entity_matrix_table' .. i}
+      entity_matrix_table[i]= nn.CAddTable()({
+         nn.Padding(1,1,2)(entity_matrix_table[i-1]),weighted_object_token_vector_matrix}):annotate{'entity_matrix_table' .. i}
    end
    -- end of processing input objects
 
@@ -117,16 +83,16 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
    -- a table to store tables of connections that must share parameters
    local shareList = {}
 
-   -- table to collect all attribute mappings, to be shared
+   -- table to collect all mappings, to be shared
    local attribute_mappings = {}
-   
-   -- table to collect all mapping from raw max of entity similarities to probability of creating new entity, to be shared
-   -- this can be empty
-   local new_entity_mappings = {}
-   
-      -- we initalize the table to store the object mappings here
    local token_object_mappings = {}
+   local new_entity_mappings = {} -- this can be empty
 
+-- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
+   table.insert(shareList,token_object_mappings)
+   table.insert(shareList,attribute_mappings)
+   table.insert(shareList,new_entity_mappings)
+   
    -- first, we process the query, mapping it onto multimodal space
 
    -- the first attribute in the query
@@ -153,9 +119,6 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
    -- now we call a function to process the object tokens and return an entity matrix
    local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings, new_entity_mappings, weight_distribution_function)
 
-   -- we are done processing input attributes, so we add their parameter list to the list of parameters to be shared
-   table.insert(shareList,attribute_mappings)
-
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
    -- obtain an entity-to-query similarity profile, that we softmax
@@ -164,9 +127,6 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
    local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({stable_entity_matrix,query}))
    local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
    local output_distribution = nn.LogSoftMax()(rescaled_query_entity_similarity_profile):annotate{name='query_entity_similarity_profile'}
-
-   -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
-   table.insert(shareList,token_object_mappings)
 
 
    -- wrapping up the model
