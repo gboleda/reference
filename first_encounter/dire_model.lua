@@ -1,4 +1,4 @@
-function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, shared_raw_new_entity_mapping)
+local function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, shared_raw_new_entity_mapping)
     -- computing the new-entity cell value
     -- average or max or sum by default of input vector cells...
     local raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
@@ -24,4 +24,8 @@ end
 
 function entity_prediction_image_att_shared_neprob(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
     return build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_model_weight_distribution, temperature, dropout_p,use_cuda)
+end
+
+function entity_prediction_image_att_shared_neprob_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
