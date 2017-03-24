@@ -1,5 +1,5 @@
 function build_entity_matrix_metric_learning(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, 
-                             att_mappings_table, new_entity_mappings_table, weight_distribute_function)
+                             att_mappings_table, new_entity_mappings_table, selection_metric_mappings_table, weight_distribute_function)
    -- this function builds an entity matrix with as many rows as input
    -- tokens, although some row might be 0 vectors because the
    -- corresponding input information is mapped to existing entity
@@ -53,6 +53,7 @@ function build_entity_matrix_metric_learning(t_inp_size, v_inp_size, mm_size, in
       local object_token_vector_flat = nn.CAddTable()({token_attribute,token_object}):annotate{name='object_token_' .. i}
       
       local metric_mapped_object_token = nn.LinearNB(mm_size,mm_size)(object_token_vector_flat)
+      table.insert(selection_metric_mappings_table, metric_mapped_object_token)
       -- reshaping
       local object_token_vector = nn.View(-1,1):setNumInputDims(1)(metric_mapped_object_token)
 
@@ -90,11 +91,13 @@ function build_customize_model_metric_learning(t_inp_size,v_inp_size,mm_size,inp
    local attribute_mappings = {}
    local token_object_mappings = {}
    local new_entity_mappings = {} -- this can be empty
+   local selection_metric_mappings = {} -- this can be empty
 
 -- adding token_object_mappings to shareList only now, after we also added to it the candidate image mappings
    table.insert(shareList,token_object_mappings)
    table.insert(shareList,attribute_mappings)
    table.insert(shareList,new_entity_mappings)
+   table.insert(shareList,selection_metric_mappings)
    
    -- first, we process the query, mapping it onto multimodal space
 
@@ -115,13 +118,15 @@ function build_customize_model_metric_learning(t_inp_size,v_inp_size,mm_size,inp
    -- putting together the multimodal query vector by summing the
    -- output of the previous linear transformations, and ensuring it
    -- will be a column vector
-   local flat_query = nn.LinearNB(t_inp_size, mm_size)(nn.CAddTable()({query_attribute_1,query_attribute_2}):annotate{name='query'})
+   local flat_query = nn.LinearNB(mm_size, mm_size)(nn.CAddTable()({query_attribute_1,query_attribute_2}):annotate{name='query'})
    local query = nn.View(-1,1):setNumInputDims(1)(flat_query)
 
 
 
    -- now we call a function to process the object tokens and return an entity matrix
-   local stable_entity_matrix = build_entity_matrix_metric_learning(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings, new_entity_mappings, weight_distribution_function)
+   local stable_entity_matrix = build_entity_matrix_metric_learning(t_inp_size,
+            v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,
+            attribute_mappings, new_entity_mappings, selection_metric_mappings, weight_distribution_function)
 
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
