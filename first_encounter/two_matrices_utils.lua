@@ -7,7 +7,8 @@ local function add_new_input_and_create_mapping(inputs, input_size, mapping_size
    return mapping
 end
 
-local function add_new_input_and_create_double_mapping(inputs, input_size, mapping_size, dropout_p, share_mappings_select, share_mappings_compare)
+local function add_new_input_and_create_double_mapping(inputs, input_size, mapping_size, dropout_p, share_mappings_select, 
+            share_mappings_compare)
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
    local mapping_in_do = nn.Dropout(dropout_p)(curr_input)
@@ -18,12 +19,15 @@ local function add_new_input_and_create_double_mapping(inputs, input_size, mappi
    return mapping_select, mapping_compare
 end
 
-local function add_and_compute_token_vector(inputs, t_input_size, v_input_size, mapping_size, dropout_p, attribute_mappings_select, object_mappings_select, 
+local function add_and_compute_token_vector(inputs, t_input_size, v_input_size, mapping_size, dropout_p, 
+            attribute_mappings_select, object_mappings_select, 
             attribute_mappings_compare, object_mappings_compare)
     -- first processing the attribute
-   local token_attribute_select, token_attribute_compare = add_new_input_and_create_double_mapping(inputs,t_input_size,mapping_size,dropout_p,attribute_mappings_select, attribute_mappings_compare)
+   local token_attribute_select, token_attribute_compare = add_new_input_and_create_double_mapping(inputs,
+            t_input_size,mapping_size,dropout_p,attribute_mappings_select, attribute_mappings_compare)
    -- processing the object image
-   local token_object_select, token_object_compare = add_new_input_and_create_double_mapping(inputs,v_input_size,mapping_size,dropout_p,object_mappings_select, object_mappings_compare)
+   local token_object_select, token_object_compare = add_new_input_and_create_double_mapping(inputs,
+            v_input_size,mapping_size,dropout_p,object_mappings_select, object_mappings_compare)
    -- putting together attribute and object 
    local token_vector_select = nn.CAddTable()({token_attribute_select,token_object_select})
    local token_vector_compare = nn.CAddTable()({token_attribute_compare,token_object_compare})
@@ -46,7 +50,8 @@ local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, in
    -- directly mapped to the first row of the entity matrix
    
    local first_object_token_vector_select, first_object_token_vector_compare = add_and_compute_token_vector(inputs,t_inp_size,
-            v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select, attribute_mappings_compare,token_object_mappings_compare)
+            v_inp_size,mm_size,dropout_p,attribute_mappings_select,token_object_mappings_select, attribute_mappings_compare,
+            token_object_mappings_compare)
    -- turning the vector into a 1xmm_size matrix, adding the latter as
    -- first state of the entity matrix table
    table.insert(entity_matrix_table_select,nn.View(1,-1):setNumInputDims(1)(first_object_token_vector_select))
@@ -89,10 +94,8 @@ function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_
    
    local attribute_mappings_select= {}
    local attribute_mappings_compare = {}
-   ---- token object mappings
    local token_object_mappings_select = {}
    local token_object_mappings_compare = {}
-   --- mappings to raw new entity mass
    local raw_new_entity_mass_mappings = {}
 
    -- adding to shareList here the attribute and entity mass mappings
