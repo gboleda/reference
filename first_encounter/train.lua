@@ -219,6 +219,14 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_2matrices') then
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_metric_learning') then
+   model=entity_prediction_image_att_shared_neprob_metric_learning(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
 elseif (opt.model=='entity_prediction_image_att_shared_neprob_nomap') then
    model=entity_prediction_image_att_shared_neprob_nomap(t_input_size,
         v_input_size,
