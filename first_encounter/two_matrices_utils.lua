@@ -143,3 +143,63 @@ function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_
    return model
 
 end
+
+function build_customize_model_with_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, weight_distribution_function, temperature, dropout_p,use_cuda)
+
+   local inputs = {}
+
+   -- a table to store tables of connections that must share parameters
+   local shareList = {}
+   
+   local attribute_mappings_select= {}
+   local attribute_mappings_compare = {}
+   local token_object_mappings_select = {}
+   local token_object_mappings_compare = {}
+   local raw_new_entity_mass_mappings = {}
+
+   -- adding to shareList here the attribute and entity mass mappings
+   table.insert(shareList,attribute_mappings_select)
+   table.insert(shareList,attribute_mappings_compare)
+   table.insert(shareList,token_object_mappings_select)
+   table.insert(shareList,token_object_mappings_compare)
+   table.insert(shareList,raw_new_entity_mass_mappings)
+   
+   
+   -- first, we process the query, mapping it onto multimodal space
+   -- the query attributes in the query
+   local query_attribute_1 = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,attribute_mappings_compare)
+   local query_attribute_2 = add_new_input_and_create_mapping(inputs,t_inp_size,mm_size,dropout_p,attribute_mappings_compare)
+
+   -- putting together the multi-modal query vector by summing the
+   -- output of the previous linear transformations, and ensuring it
+   -- will be a column vector
+   local query = nn.CAddTable()({query_attribute_1,query_attribute_2}):annotate{name='query'}
+
+   local entity_matrix_table_select, entity_matrix_table_compare = build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, inputs, 
+                             attribute_mappings_select, attribute_mappings_compare, token_object_mappings_select, 
+                             token_object_mappings_compare, raw_new_entity_mass_mappings,
+                             weight_distribution_function)
+   local broascast_query = nn.View(-1,mm_size):setNumInputDims(3)(nn.BroadCast(inp_seq_cardinality)(query))
+   local candidates = nn.View(-1,mm_size):setNumInputDims(3)(entity_matrix_table_compare[inp_seq_cardinality])
+   local raw_query_entity_similarity_profile = nn.CosineDistance()({candidates,broascast_query})
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local output_distribution = nn.LogSoftMax()(rescaled_query_entity_similarity_profile):annotate{name='query_entity_similarity_profile'}
+
+   -- wrapping up the model
+   local model = nn.gModule(inputs,{output_distribution})
+   
+   -- following code is adapted from MeMNN 
+   if (use_cuda ~= 0) then
+      model:cuda()
+   end
+   -- IMPORTANT! do weight sharing after model is in cuda
+   for i = 1,#shareList do
+      local m1 = shareList[i][1].data.module
+      for j = 2,#shareList[i] do
+          local m2 = shareList[i][j].data.module
+          m2:share(m1,'weight','bias','gradWeight','gradBias')
+      end
+   end
+   return model
+
+end
