@@ -5,6 +5,7 @@ require('nngraph')
 require('optim')
 require('../LinearNB') -- for linear mappings without bias
 require('../Peek') 
+require('Broadcast')
 
 -- making sure random is random!
 math.randomseed(os.time())
