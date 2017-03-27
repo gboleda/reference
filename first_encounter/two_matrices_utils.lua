@@ -181,7 +181,7 @@ function build_customize_model_with_2matrices_cosine(t_inp_size,v_inp_size,mm_si
                              weight_distribution_function)
    local broascast_query = nn.View(-1,mm_size):setNumInputDims(3)(nn.Broadcast(inp_seq_cardinality)(query))
    local candidates = nn.View(-1,mm_size):setNumInputDims(3)(entity_matrix_table_compare[inp_seq_cardinality])
-   local raw_query_entity_similarity_profile = nn.CosineDistance()({candidates,broascast_query})
+   local raw_query_entity_similarity_profile = nn.View(-1, inp_seq_cardinality)(nn.CosineDistance()({candidates,broascast_query}))
    local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
    local output_distribution = nn.LogSoftMax()(rescaled_query_entity_similarity_profile):annotate{name='query_entity_similarity_profile'}
 
