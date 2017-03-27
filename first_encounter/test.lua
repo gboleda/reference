@@ -4,6 +4,7 @@ require('nn')
 require('cunn')
 require('nngraph')
 require('../LinearNB') -- for linear mappings without bias
+require('Broadcast')
 
 -- ******* options *******
 
