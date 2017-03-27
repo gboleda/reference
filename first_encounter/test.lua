@@ -383,6 +383,6 @@ model:evaluate() -- turns off dropout in test mode
 print('computing model predictions and accuracy on test data')
 
 local _,acc=
-   test(input_table,gold_index_list, 1000 , opt.test_set_size / 1000, opt.test_set_size,0,output_debug_prefix,output_guesses_file)
+   test(input_table,gold_index_list, 100 , opt.test_set_size / 100, opt.test_set_size,0,output_debug_prefix,output_guesses_file)
 
 print('test set accuracy is ' .. acc)
