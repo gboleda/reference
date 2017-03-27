@@ -1,4 +1,4 @@
-local function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, shared_raw_new_entity_mapping)
+local function compute_dire_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, temperature, shared_raw_new_entity_mapping)
     -- computing the new-entity cell value
     -- average or max or sum by default of input vector cells...
     local raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
@@ -15,7 +15,7 @@ local function compute_dire_model_weight_distribution(raw_similarity_profile_to_
     -- matrix with the profile of each item in a minibatch as
     -- a ROW vector
     local minus_transform_new_entity_mass = nn.AddConstant(1,false)(nn.MulConstant(-1,false)(transformed_new_entity_mass))
-    local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(raw_similarity_profile_to_entity_matrix))
+    local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.MulConstant(temperature,false)(raw_similarity_profile_to_entity_matrix)))
     normalized_similarity_profile = nn.MM(false, false){nn.View(-1,i - 1, 1)(normalized_similarity_profile),nn.View(-1,1, 1)(minus_transform_new_entity_mass)}
     normalized_similarity_profile = (nn.JoinTable(2,2)({nn.View(-1,i - 1)(normalized_similarity_profile),transformed_new_entity_mass})):annotate{name='normalized_similarity_profile_' .. i}
     

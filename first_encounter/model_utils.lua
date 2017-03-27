@@ -1,5 +1,5 @@
 function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, in_table, obj_mappings_table, 
-                             att_mappings_table, new_entity_mappings_table, weight_distribute_function)
+                             att_mappings_table, new_entity_mappings_table, temperature, weight_distribute_function)
    -- this function builds an entity matrix with as many rows as input
    -- tokens, although some row might be 0 vectors because the
    -- corresponding input information is mapped to existing entity
@@ -58,7 +58,7 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
       -- the previous state of the entity matrix
       local raw_similarity_profile_to_entity_matrix = nn.MM(false,false)({entity_matrix_table[i-1],object_token_vector})
       
-      local normalized_similarity_profile = weight_distribute_function(raw_similarity_profile_to_entity_matrix, i, new_entity_mappings_table)
+      local normalized_similarity_profile = weight_distribute_function(raw_similarity_profile_to_entity_matrix, i, temperature, new_entity_mappings_table)
 
       local weighted_object_token_vector_matrix = nn.MM(false,true)({nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector})
 
@@ -117,7 +117,9 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
 
 
    -- now we call a function to process the object tokens and return an entity matrix
-   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,token_object_mappings,attribute_mappings, new_entity_mappings, weight_distribution_function)
+   local stable_entity_matrix = build_entity_matrix(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality,dropout_p,inputs,
+                        token_object_mappings,attribute_mappings, new_entity_mappings, temperature,
+                        weight_distribution_function)
 
    -- at this point, we take the dot product of each row (entity)
    -- vector in the entity matrix with the linguistic query vector, to
@@ -125,7 +127,7 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
    -- normalize (note Views needed to get right shapes, and rescaling
    -- by temperature)
    local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({stable_entity_matrix,query}))
-   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(1)(raw_query_entity_similarity_profile)
    local output_distribution = nn.LogSoftMax()(rescaled_query_entity_similarity_profile):annotate{name='query_entity_similarity_profile'}
 
 

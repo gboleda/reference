@@ -37,7 +37,7 @@ end
 local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, inputs, 
                              attribute_mappings_select, attribute_mappings_compare, token_object_mappings_select, 
                              token_object_mappings_compare, raw_new_entity_mass_mappings,
-                             weight_distribution_function)
+                             temperature, weight_distribution_function)
    -- now we process the object tokens
    -- a table to store the entity matrix as it evolves through time
    local entity_matrix_table_select = {}
@@ -70,7 +70,7 @@ local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, in
       -- the previous state of the entity matrix
       local raw_similarity_profile_to_entity_matrix_select = nn.MM(false,false)({entity_matrix_table_select[i-1],object_token_vector_select})
 
-      local normalized_similarity_profile = weight_distribution_function(raw_similarity_profile_to_entity_matrix_select, i, raw_new_entity_mass_mappings)
+      local normalized_similarity_profile = weight_distribution_function(raw_similarity_profile_to_entity_matrix_select, i, temperature, raw_new_entity_mass_mappings)
       
       if (i ~= inp_seq_cardinality) then
          local weighted_object_token_vector_matrix_select = nn.MM(false,true){nn.View(-1,1):setNumInputDims(1)(normalized_similarity_profile),object_token_vector_select}
@@ -118,11 +118,11 @@ function build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_
 
    local entity_matrix_table_select, entity_matrix_table_compare = build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, inputs, 
                              attribute_mappings_select, attribute_mappings_compare, token_object_mappings_select, 
-                             token_object_mappings_compare, raw_new_entity_mass_mappings,
+                             token_object_mappings_compare, raw_new_entity_mass_mappings, temperature,
                              weight_distribution_function)
 
    local raw_query_entity_similarity_profile = nn.View(-1):setNumInputDims(2)(nn.MM(false,false)({entity_matrix_table_compare[inp_seq_cardinality],query}))
-   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(1)(raw_query_entity_similarity_profile)
    local output_distribution = nn.LogSoftMax()(rescaled_query_entity_similarity_profile):annotate{name='query_entity_similarity_profile'}
 
    -- wrapping up the model
@@ -177,12 +177,12 @@ function build_customize_model_with_2matrices_cosine(t_inp_size,v_inp_size,mm_si
 
    local entity_matrix_table_select, entity_matrix_table_compare = build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, inp_seq_cardinality, dropout_p, inputs, 
                              attribute_mappings_select, attribute_mappings_compare, token_object_mappings_select, 
-                             token_object_mappings_compare, raw_new_entity_mass_mappings,
+                             token_object_mappings_compare, raw_new_entity_mass_mappings, temperature, 
                              weight_distribution_function)
    local broascast_query = nn.View(-1,mm_size):setNumInputDims(3)(nn.Broadcast(inp_seq_cardinality)(query))
    local candidates = nn.View(-1,mm_size):setNumInputDims(3)(entity_matrix_table_compare[inp_seq_cardinality])
    local raw_query_entity_similarity_profile = nn.View(-1, inp_seq_cardinality)(nn.CosineDistance()({candidates,broascast_query}))
-   local rescaled_query_entity_similarity_profile = nn.MulConstant(temperature)(raw_query_entity_similarity_profile)
+   local rescaled_query_entity_similarity_profile = nn.MulConstant(1)(raw_query_entity_similarity_profile)
    local output_distribution = nn.LogSoftMax()(rescaled_query_entity_similarity_profile):annotate{name='query_entity_similarity_profile'}
 
    -- wrapping up the model
