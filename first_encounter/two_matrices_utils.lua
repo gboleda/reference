@@ -68,7 +68,7 @@ local function build_entity_libary_2matrices(t_inp_size, v_inp_size, mm_size, in
 
       -- measuring the similarity of the current vector to the ones in
       -- the previous state of the entity matrix
-      local raw_similarity_profile_to_entity_matrix_select = nn.MM(false,false)({entity_matrix_table_select[i-1],object_token_vector_select})
+      local raw_similarity_profile_to_entity_matrix_select = nn.MM(false,false)({entity_matrix_table_select[i-1],object_token_vector_select}):annotate{name='raw_similarity_profile_' .. i}
 
       local normalized_similarity_profile = weight_distribution_function(raw_similarity_profile_to_entity_matrix_select, i, temperature, raw_new_entity_mass_mappings)
       
