@@ -1,7 +1,7 @@
 local function compute_maxprob_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, temperature, shared_raw_new_entity_mapping)
     -- computing the new-entity cell value
     -- average or max or sum by default of input vector cells...
-    local raw_normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.MulConstant(temperature,false)(raw_similarity_profile_to_entity_matrix)))
+    local raw_normalized_similarity_profile = nn.SoftMax()(nn.MulConstant(temperature,false)(raw_similarity_profile_to_entity_matrix))
     local raw_cumulative_prob=nn.Max(1,2)(raw_normalized_similarity_profile)
     raw_cumulative_prob:annotate{name='raw_cumulative_similarity_' .. i}
     local raw_new_entity_mass = nn.Linear(1,1)(raw_cumulative_prob):annotate{name='raw_new_entity_mass_' .. i}
