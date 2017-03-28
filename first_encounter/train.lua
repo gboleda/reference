@@ -138,7 +138,7 @@ dofile('model_utils.lua')
 dofile('two_matrices_utils.lua')
 dofile('metric_learning_model_utils.lua')
 dofile('dire_model.lua')
-dofile('dire__max_prob_model.lua')
+dofile('dire_max_prob_model.lua')
 dofile('tanh_lru_model.lua')
 dofile('dire_without_new_entity_mapping.lua')
 
