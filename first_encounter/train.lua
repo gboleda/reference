@@ -230,6 +230,22 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_2matrices_cosine')
         opt.temperature,
         opt.dropout_prob,
         opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_threshold') then
+   model=entity_prediction_image_att_shared_neprob_threshold(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_threshold_2matrices') then
+   model=entity_prediction_image_att_shared_neprob_threshold_2matrices(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
 elseif (opt.model=='entity_prediction_image_att_shared_maxprob_2matrices') then
    model=entity_prediction_image_att_shared_maxprob_2matrices(t_input_size,
         v_input_size,
