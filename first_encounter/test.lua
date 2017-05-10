@@ -245,7 +245,9 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               f8:write("" .. match_index .. " :: ")
               local j = 3
               local ref_position = j+1
-              f8:write(raw_cumulative_similarity_table[j][i][1]," :: ")
+              if (next(raw_cumulative_similarity_table) ~= nil) then
+                f8:write(raw_cumulative_similarity_table[j][i][1]," :: ")
+              end
               for k=1,raw_similarity_table[j]:size(2) do
                 --print(raw_similarity_table[j][i][k])
                 f8:write(" ", raw_similarity_table[j][i][k])
