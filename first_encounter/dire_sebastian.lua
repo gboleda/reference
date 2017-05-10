@@ -3,7 +3,7 @@ local function compute_dire_sebastian_model_weight_distribution(raw_similarity_p
     -- average or max or sum by default of input vector cells...
     
     local patch_constant = 0.5
-    local raw_similarity_profile = nn.Padding(2, 1, 2, patch_constant)(raw_similarity_profile_to_entity_matrix)
+    local raw_similarity_profile = nn.Padding(2, 1, 2, patch_constant)(nn.View(-1, i-1)(raw_similarity_profile_to_entity_matrix))
     raw_similarity_profile = nn.View(-1, 1)(raw_similarity_profile)
     local scale_similarity_profile = nn.Linear(1, 1)(raw_similarity_profile)
     
