@@ -10,7 +10,7 @@ local function compute_dire_sebastian_model_weight_distribution(raw_similarity_p
     table.insert(shared_raw_new_entity_mapping,scale_similarity_profile)
     
     scale_similarity_profile = nn.Sigmoid()(scale_similarity_profile)
-    scale_similarity_profile = nn.View(-1, i)(raw_similarity_profile)
+    scale_similarity_profile = nn.View(-1, i)(scale_similarity_profile)
     local normalized_similarity_profile = nn.Normalization()(scale_similarity_profile)
     
     return normalized_similarity_profile
