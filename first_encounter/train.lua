@@ -140,6 +140,7 @@ dofile('two_matrices_utils.lua')
 dofile('metric_learning_model_utils.lua')
 dofile('dire_model.lua')
 dofile('dire_max_prob_model.lua')
+dofile('dire_sebastian.lua')
 dofile('dire_threshold_model.lua')
 dofile('tanh_lru_model.lua')
 dofile('dire_without_new_entity_mapping.lua')
@@ -258,6 +259,14 @@ elseif (opt.model=='entity_prediction_image_att_shared_neprob_threshold_2matrice
         opt.use_cuda)
 elseif (opt.model=='entity_prediction_image_att_shared_maxprob_2matrices') then
    model=entity_prediction_image_att_shared_maxprob_2matrices(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_sebastian_2matrices') then
+   model=entity_prediction_image_att_shared_neprob_sebastian_2matrices(t_input_size,
         v_input_size,
         opt.multimodal_size,
         opt.input_sequence_cardinality,
