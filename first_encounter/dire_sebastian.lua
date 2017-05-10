@@ -8,7 +8,7 @@ local function compute_dire_sebastian_model_weight_distribution(raw_similarity_p
     local scale_similarity_profile = nn.Linear(1, 1)(raw_similarity_profile)
     scale_similarity_profile = nn.Sigmoid()(scale_similarity_profile)
     scale_similarity_profile = nn.View(-1, i)(raw_similarity_profile)
-    local normalized_similarity_profile = nn.Normalization(scale_similarity_profile)
+    local normalized_similarity_profile = nn.Normalization()(scale_similarity_profile)
     
     return normalized_similarity_profile
 end
