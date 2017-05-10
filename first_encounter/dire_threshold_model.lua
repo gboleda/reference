@@ -38,3 +38,7 @@ end
 function entity_prediction_image_att_shared_neprob_threshold_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
     return build_customize_model_with_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_threshold_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
+
+function entity_prediction_image_att_shared_neprob_norm_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model_with_2matrices_norm(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_threshold_model_weight_distribution, temperature, dropout_p,use_cuda)
+end
