@@ -248,13 +248,17 @@ function test(input_table,gold_index_list,valid_batch_size,number_of_valid_batch
               if (next(raw_cumulative_similarity_table) ~= nil) then
                 f8:write(raw_cumulative_similarity_table[j][i][1]," :: ")
               end
-              for k=1,raw_similarity_table[j]:size(2) do
-                --print(raw_similarity_table[j][i][k])
-                f8:write(" ", raw_similarity_table[j][i][k])
+              if (next(raw_similarity_table) ~= nil) then
+                for k=1,raw_similarity_table[j]:size(2) do
+                  --print(raw_similarity_table[j][i][k])
+                  f8:write(" ", raw_similarity_table[j][i][k])
+                end
+                f8:write(" :: ")
               end
-              f8:write(" :: ")
-              for k=1,similarity_profiles_table[j]:size(2) do
-                f8:write(" " .. similarity_profiles_table[j][i][k])
+              if (next(similarity_profiles_table) ~= nil) then
+                for k=1,similarity_profiles_table[j]:size(2) do
+                  f8:write(" " .. similarity_profiles_table[j][i][k])
+                end
               end
               f8:write("\n")
             -- end
