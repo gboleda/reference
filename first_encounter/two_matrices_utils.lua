@@ -4,6 +4,7 @@ local function add_new_input_and_create_mapping(inputs, input_size, mapping_size
    local mapping_in_do = nn.Dropout(dropout_p)(curr_input)
    local mapping = nn.LinearNB(input_size, mapping_size)(mapping_in_do):annotate{name='query_att1'}
    table.insert(share_mappings,mapping)
+   mapping = nn.Sigmoid()(mapping)
    return mapping
 end
 
@@ -16,6 +17,8 @@ local function add_new_input_and_create_double_mapping(inputs, input_size, mappi
    local mapping_compare = nn.LinearNB(input_size, mapping_size)(mapping_in_do):annotate{name='compare'}
    table.insert(share_mappings_select,mapping_select)
    table.insert(share_mappings_compare,mapping_compare)
+   mapping_select = nn.Sigmoid()(mapping_select)
+   mapping_compare = nn.Sigmoid()(mapping_compare)
    return mapping_select, mapping_compare
 end
 
