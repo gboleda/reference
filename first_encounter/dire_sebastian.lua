@@ -1,4 +1,4 @@
-local function compute_dire_sebastian_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, temperature, shared_raw_new_entity_mapping)
+local function compute_dire_sb2_model_weight_distribution(raw_similarity_profile_to_entity_matrix, i, temperature, shared_raw_new_entity_mapping)
     -- computing the new-entity cell value
     -- average or max or sum by default of input vector cells...
     
@@ -16,18 +16,18 @@ local function compute_dire_sebastian_model_weight_distribution(raw_similarity_p
     return normalized_similarity_profile
 end
 
-function entity_prediction_image_att_shared_neprob_sebastian(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
-    return build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sebastian_model_weight_distribution, temperature, dropout_p,use_cuda)
+function entity_prediction_image_att_shared_neprob_sb2(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sb2_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
 
-function entity_prediction_image_att_shared_neprob_sebastian_metric_learning(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
-    return build_customize_model_metric_learning(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sebastian_model_weight_distribution, temperature, dropout_p,use_cuda)
+function entity_prediction_image_att_shared_neprob_sb2_metric_learning(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model_metric_learning(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sb2_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
 
-function entity_prediction_image_att_shared_neprob_sebastian_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
-    return build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sebastian_model_weight_distribution, temperature, dropout_p,use_cuda)
+function entity_prediction_image_att_shared_neprob_sb2_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model_with_2matrices(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sb2_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
 
-function entity_prediction_image_att_shared_neprob_sebastian_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
-    return build_customize_model_with_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sebastian_model_weight_distribution, temperature, dropout_p,use_cuda)
+function entity_prediction_image_att_shared_neprob_sb2_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, temperature, dropout_p,use_cuda)
+    return build_customize_model_with_2matrices_cosine(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality, compute_dire_sb2_model_weight_distribution, temperature, dropout_p,use_cuda)
 end
