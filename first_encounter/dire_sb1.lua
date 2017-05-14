@@ -3,19 +3,13 @@ local function compute_sb1_model_weight_distribution(raw_similarity_profile_to_e
     -- average or max or sum by default of input vector cells...
     raw_similarity_profile_to_entity_matrix = nn.Linear(1,1)(nn.View(-1,1)(raw_similarity_profile_to_entity_matrix))
     table.insert(shared_raw_new_entity_mapping,raw_similarity_profile_to_entity_matrix)
-    raw_similarity_profile_to_entity_matrix = nn.View(-1,i -1)(raw_similarity_profile_to_entity_matrix)
+    raw_similarity_profile_to_entity_matrix = nn.View(-1,1,i -1)(raw_similarity_profile_to_entity_matrix)
     local raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
     raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
     local raw_new_entity_mass = nn.Identity()(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
 
-    -- passing through nonlinearity if requested
-    local transformed_new_entity_mass = nn.Sigmoid()(raw_new_entity_mass)
+    local transformed_new_entity_mass = raw_new_entity_mass
     
-    -- now, we concatenate the similarity profile with this new
-    -- cell, and normalize
-    -- NB: the output of the following very messy line of code is a
-    -- matrix with the profile of each item in a minibatch as
-    -- a ROW vector
     local minus_transform_new_entity_mass = nn.AddConstant(1,false)(nn.MulConstant(-1,false)(transformed_new_entity_mass))
     local normalized_similarity_profile = nn.SoftMax()(nn.View(-1):setNumInputDims(2)(nn.MulConstant(temperature,false)(raw_similarity_profile_to_entity_matrix)))
     normalized_similarity_profile = nn.MM(false, false){nn.View(-1,i - 1, 1)(normalized_similarity_profile),nn.View(-1,1, 1)(minus_transform_new_entity_mass)}
