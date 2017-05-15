@@ -23,12 +23,14 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
    local first_token_attribute_do = nn.Dropout(dropout_p)(curr_input)
    local first_token_attribute = nn.LinearNB(t_inp_size,mm_size)(first_token_attribute_do)
    table.insert(att_mappings_table,first_token_attribute)
+   first_token_attribute = nn.Sigmoid(first_token_attribute)
    -- then processing the object image
    local curr_input = nn.Identity()()
    table.insert(in_table,curr_input)
    local first_token_object_do = nn.Dropout(dropout_p)(curr_input)
    local first_token_object = nn.LinearNB(v_inp_size,mm_size)(first_token_object_do)
    table.insert(obj_mappings_table,first_token_object)
+   first_token_object = nn.Sigmoid(first_token_object)
    -- putting together attribute and object 
    local first_object_token_vector = nn.CAddTable()({first_token_attribute,first_token_object})
    -- turning the vector into a 1xmm_size matrix, adding the latter as
@@ -43,12 +45,14 @@ function build_entity_matrix(t_inp_size, v_inp_size, mm_size, inp_seq_cardinalit
       local token_attribute_do = nn.Dropout(dropout_p)(curr_input)
       local token_attribute = nn.LinearNB(t_inp_size,mm_size)(token_attribute_do)
       table.insert(att_mappings_table,token_attribute)
+      token_attribute = nn.Sigmoid(token_attribute)
       -- processing the object image
       local curr_input = nn.Identity()()
       table.insert(in_table,curr_input)
       local token_object_do = nn.Dropout(dropout_p)(curr_input)
       local token_object = nn.LinearNB(v_inp_size,mm_size)(token_object_do)
       table.insert(obj_mappings_table,token_object)
+      token_object = nn.Sigmoid(token_object)
       -- putting together attribute and object 
       local object_token_vector_flat = nn.CAddTable()({token_attribute,token_object}):annotate{name='object_token_' .. i}
       -- reshaping
@@ -101,13 +105,14 @@ function build_customize_model(t_inp_size,v_inp_size,mm_size,inp_seq_cardinality
    local query_attribute_1_do = nn.Dropout(dropout_p)(curr_input)
    local query_attribute_1 = nn.LinearNB(t_inp_size, mm_size)(query_attribute_1_do):annotate{name='query_att1'}
    table.insert(attribute_mappings,query_attribute_1)
-
+   query_attribute_1 = nn.Sigmoid(query_attribute_1)
    -- the second attribute in the query
    local curr_input = nn.Identity()()
    table.insert(inputs,curr_input)
    local query_attribute_2_do = nn.Dropout(dropout_p)(curr_input)
    local query_attribute_2 = nn.LinearNB(t_inp_size, mm_size)(query_attribute_2_do):annotate{name='query_att2'}
    table.insert(attribute_mappings,query_attribute_2)
+   query_attribute_2 = nn.Sigmoid(query_attribute_2)
    
    -- putting together the multimodal query vector by summing the
    -- output of the previous linear transformations, and ensuring it
