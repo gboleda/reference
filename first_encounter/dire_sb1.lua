@@ -4,6 +4,7 @@ local function compute_sb1_model_weight_distribution(raw_similarity_profile_to_e
     raw_similarity_profile_to_entity_matrix = nn.Linear(1,1)(nn.View(-1,1)(raw_similarity_profile_to_entity_matrix))
     table.insert(shared_raw_new_entity_mapping,raw_similarity_profile_to_entity_matrix)
     raw_similarity_profile_to_entity_matrix = nn.View(-1,i -1, 1)(raw_similarity_profile_to_entity_matrix)
+    raw_similarity_profile_to_entity_matrix = nn.ReLU()(raw_similarity_profile_to_entity_matrix)
     local raw_cumulative_similarity=nn.Max(1,2)(raw_similarity_profile_to_entity_matrix)
     raw_cumulative_similarity:annotate{name='raw_cumulative_similarity_' .. i}
     local raw_new_entity_mass = nn.Sigmoid()(raw_cumulative_similarity):annotate{name='raw_new_entity_mass_' .. i}
