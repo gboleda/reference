@@ -113,7 +113,7 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
          local table_counter = 0
          local start_at = 3
          local end_at = start_at+input_sequence_cardinality-1
-         local entity_index = 2
+         local entity_index = 1
          for j=start_at,end_at do
             -- object token contains attr, object
             local object_token=current_data[j]:split(":")
@@ -126,8 +126,8 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
             else
                entity_creating_list[entity_index][i] = {}
                local repetition_index = 0
-               for prob_index=1,(entity_index - 1) do
-                 if input_sequence_list[prob_index * 2][i] == input_sequence_list then
+               for prob_index=1,entity_index do
+                 if input_sequence_list[prob_index * 2][i] == input_sequence_list[table_counter][i] then
                     repetition_index = prob_index
                     table.insert(entity_creating_list[entity_index][i],1)
                  else
