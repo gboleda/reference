@@ -113,7 +113,7 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
          local table_counter = 0
          local start_at = 3
          local end_at = start_at+input_sequence_cardinality-1
-         local entity_index = 1
+         local entity_index = 2
          for j=start_at,end_at do
             -- object token contains attr, object
             local object_token=current_data[j]:split(":")
