@@ -244,10 +244,14 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    if (use_cuda ~=0) then
       table.insert(output_tensor_table,query_att1_list:cuda())
       table.insert(output_tensor_table,query_att2_list:cuda())
+      print("input exposures: ")
       for j=1,(input_sequence_cardinality*2) do
+         print("".. j .. " " .. input_sequence_list[j]:dim())
          table.insert(output_tensor_table,input_sequence_list[j]:cuda())
       end
+      print("oracle: ")
       for j=1,(input_sequence_cardinality - 1) do
+         print("entity: " .. (j + 1) .. " " .. entity_weight_list[j]:dim() .. ": " .. entity_weight_list[j]:size(1) .. ", " .. entity_weight_list[j]:size(2))
          table.insert(output_tensor_table,entity_weight_list[j]:cuda())
       end
       gold_index_list=gold_index_list:cuda()
