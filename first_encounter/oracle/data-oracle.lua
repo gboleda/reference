@@ -113,6 +113,7 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
          local table_counter = 0
          local start_at = 3
          local end_at = start_at+input_sequence_cardinality-1
+         local entity_index = 1
          for j=start_at,end_at do
             -- object token contains attr, object
             local object_token=current_data[j]:split(":")
@@ -121,9 +122,24 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
             table_counter = table_counter + 1
             input_sequence_list[table_counter][i]=object_token[2]
             if (j == start_at) then
-               entity_creating_list[table_counter]
+               --entity_creating_list[table_counter]
             else
-            
+               entity_creating_list[entity_index][i] = {}
+               local repetition_index = 0
+               for prob_index=1,(entity_index - 1) do
+                 if input_sequence_list[prob_index * 2][i] == input_sequence_list then
+                    repetition_index = prob_index
+                    table.insert(entity_creating_list[entity_index][i],1)
+                 else
+                    table.insert(entity_creating_list[entity_index][i],0)
+                 end
+               end
+               if repetition_index > 0 then
+                  table.insert(entity_creating_list[entity_index][i],0)
+               else
+                  table.insert(entity_creating_list[entity_index][i],1)
+               end
+               entity_index = entity_index + 1
             end
          end
          i=i+1
@@ -135,6 +151,9 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
    table.insert(output_table,query_att2_list)
    for j=1,(input_sequence_cardinality*2) do
       table.insert(output_table,input_sequence_list[j])
+   end
+   for j=1,(input_sequence_cardinality - 1) do
+      table.insert(output_table,entity_creating_list[j])
    end
    return output_table, gold_index_list
 end
@@ -149,8 +168,8 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    -- initializing the data structures to hold the data
    local output_tensor_table = {} -- to put data tensors in (will be model input)
 
-   -- for the query, we need 3 tensors, two for the attributes, one
-   -- for the object name: each of them is data_set_size x t_in_size
+   -- for the query, we need 2 tensors, two for the attributes 
+   -- each of them is data_set_size x t_in_size
    -- here and below, we initialize the tensors to 0, so if an item is
    -- missing, we will simply use the 0 vector as its representation
    local query_att1_list = torch.Tensor(data_set_size,t_in_size):fill(0)
@@ -180,6 +199,8 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
    
    -- now we traverse the indices populating the various tables with
    -- the corresponding contents
+   
+   
 
    for i=1,target_indices:size()[1] do
       local current_index=target_indices[i]
@@ -205,10 +226,20 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
          end
          j=j+1
       end
-
       gold_index_list[i]=full_gold_index_tensor[current_index]
    end
 
+   local entity_weight_list = {}
+   for i = 1,input_sequence_cardinality - 1 do
+      local weight_i = {}
+      local expo_index = i + 1
+      for j=1,target_indices:size()[1] do
+         local current_index=target_indices[j]
+         local data_table_index = i + input_sequence_cardinality * 2 + 2
+         table.insert(weight_i, data_tables[data_table_index][current_index])
+      end
+      table.insert(entity_weight_list, torch.Tensor(weight_i))
+   end
 
    if (use_cuda ~=0) then
       table.insert(output_tensor_table,query_att1_list:cuda())
@@ -216,12 +247,18 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
       for j=1,(input_sequence_cardinality*2) do
          table.insert(output_tensor_table,input_sequence_list[j]:cuda())
       end
+      for j=1,(input_sequence_cardinality - 1) do
+         table.insert(output_tensor_table,entity_weight_list[j]:cuda())
+      end
       gold_index_list=gold_index_list:cuda()
    else
       table.insert(output_tensor_table,query_att1_list)
       table.insert(output_tensor_table,query_att2_list)
       for j=1,(input_sequence_cardinality*2) do
          table.insert(output_tensor_table,input_sequence_list[j])
+      end
+      for j=1,(input_sequence_cardinality - 1) do
+         table.insert(output_tensor_table,entity_weight_list[j])
       end
    end
    
