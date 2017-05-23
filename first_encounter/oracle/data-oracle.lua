@@ -252,6 +252,7 @@ function create_input_structures_from_table(data_tables,full_gold_index_tensor,t
       print("oracle: ")
       for j=1,(input_sequence_cardinality - 1) do
          print("entity: " .. (j + 1) .. " " .. entity_weight_list[j]:dim() .. ": " .. entity_weight_list[j]:size(1) .. ", " .. entity_weight_list[j]:size(2))
+         print(entity_weight_list[j])
          table.insert(output_tensor_table,entity_weight_list[j]:cuda())
       end
       gold_index_list=gold_index_list:cuda()
