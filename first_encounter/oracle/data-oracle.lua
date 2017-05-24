@@ -125,7 +125,7 @@ function create_data_tables_from_file(i_file,data_set_size,input_sequence_cardin
                --entity_creating_list[table_counter]
             else
                entity_creating_list[entity_index][i] = {}
-               local max_weight = math.random(50,100) / 100
+               local max_weight = math.random(50,99) / 100
                local distributed_weight = (1 - max_weight) / entity_index  
                local repetition_index = 0
                for prob_index=1,entity_index do
