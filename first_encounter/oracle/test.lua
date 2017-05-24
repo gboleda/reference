@@ -51,6 +51,7 @@ BUFSIZE = 2^23 -- 1MB
 -- as model outputs!)
 local criterion=nn.ClassNLLCriterion()
 if (opt.use_cuda ~= 0) then
+   require 'cunn'
    criterion:cuda()
 end
 
