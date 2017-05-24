@@ -23,7 +23,7 @@ ff_nonlinearity=sigmoid # nonlinear transformation of hidden layers (options: no
 dropout_p=0.5
 cuda=1
 min_epochs=5
-max_epochs=120
+max_epochs=10
 max_validation_lull=5
 
 # OUTPUT PARAMETERS
@@ -45,4 +45,4 @@ th train.lua --model $model --training_set_size $trsetsize --validation_set_size
 date
 
 #echo "test.lua --test_set_size $tesetsize --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --test_file $datadir/$test_file --output_debug_prefix $debugprefix --normalize_embeddings 1 --input_sequence_cardinality $input_sequence_cardinality --model_file $modelfile --output_guesses_file $guessesfile --use_cuda $cuda"
-#th test.lua --test_set_size $tesetsize --word_embedding_file $datadir/word.dm --image_embedding_file $datadir/image.dm --test_file $datadir/$test_file --output_debug_prefix $test_debugprefix --normalize_embeddings 1 --input_sequence_cardinality $input_sequence_cardinality --model_file $modelfile --output_guesses_file $guessesfile 
+th test.lua --test_set_size $tesetsize --test_file $datadir/$test_file --output_debug_prefix $test_debugprefix --normalize_embeddings 1 --input_sequence_cardinality $input_sequence_cardinality --model_file $modelfile --output_guesses_file $guessesfile --use_cuda $cuda 
