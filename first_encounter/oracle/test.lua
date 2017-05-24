@@ -10,6 +10,8 @@ require('../Normalization')
 
 -- ******* options *******
 
+math.randomseed(os.time())
+
 cmd = torch.CmdLine()
 
 -- model file to be read
