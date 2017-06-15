@@ -142,6 +142,7 @@ print('reading the models file')
 print('reading the data processing file')
 dofile('data-supervision.lua')
 dofile('supervision_model_utils.lua')
+dofile('supervision_two_matrices_utils.lua')
 dofile('dire_models.lua')
 
 -- ****** input data reading ******
@@ -216,6 +217,14 @@ end
 
 if (opt.model=='entity_prediction_image_att_shared_neprob_supervision') then
    model=entity_prediction_image_att_shared_neprob_supervision(t_input_size,
+        v_input_size,
+        opt.multimodal_size,
+        opt.input_sequence_cardinality,
+        opt.temperature,
+        opt.dropout_prob,
+        opt.use_cuda)
+elseif (opt.model=='entity_prediction_image_att_shared_neprob_supervision_2mat') then
+   model=entity_prediction_image_att_shared_neprob_supervision_2mat(t_input_size,
         v_input_size,
         opt.multimodal_size,
         opt.input_sequence_cardinality,
