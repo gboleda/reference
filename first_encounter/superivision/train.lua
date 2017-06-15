@@ -295,7 +295,7 @@ feval = function(x)
    end
    table.insert(output_gradient, loss_prediction_gradient)
    
-   local model_weight_gradients = model:backward(batch_input_representations_table,output_gradient)
+   model:backward(batch_input_representations_table,output_gradient)
 
    -- clip gradients element-wise
    model_weight_gradients:clamp(-opt.grad_clip,opt.grad_clip)
