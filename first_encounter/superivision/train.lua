@@ -85,7 +85,9 @@ cmd:option('--mini_batch_size',10,'mini batch size')
 opt = cmd:parse(arg or {})
 print(opt)
 
-local starting_entity_creation_weight = 1
+local starting_entity_creation_weight = 0.1
+local shrinking_rate = 0.9999
+local shrinking_weight = starting_entity_creation_weight
 
 local output_debug_prefix=nil
 if opt.output_debug_prefix~='' then
@@ -271,11 +273,15 @@ feval = function(x)
    
 
    local prediction_loss = criterion:forward(model_prediction,batch_gold_index_tensor)
+--   print("model_prediction: ")
+--   print(model_prediction)
+--   print("batch_gold_index_tensor: ")
+--   print(batch_gold_index_tensor)
    -- note that according to documentation, loss is already normalized by batch size
    -- take backward pass (note that this is implicitly updating the weight gradients)
    
    -- define shrinking weight somewhere (one go down with time and one does not)
-   local shrinking_weight = starting_entity_creation_weight
+   shrinking_weight = shrinking_weight * shrinking_rate
    
    local building_entity_loss = 0
    for i=1,opt.input_sequence_cardinality - 1 do
@@ -283,7 +289,14 @@ feval = function(x)
    end
    
    local loss = shrinking_weight * building_entity_loss + prediction_loss 
-   
+--   print("shrinking_weight: ")
+--   print(shrinking_weight)
+--   
+--   print("prediction_loss: ")
+--   print(prediction_loss)
+--   
+--   print("loss: ")
+--   print(loss)
    
    local loss_prediction_gradient = criterion:backward(model_prediction,batch_gold_index_tensor)
    
