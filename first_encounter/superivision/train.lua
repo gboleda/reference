@@ -85,7 +85,7 @@ cmd:option('--mini_batch_size',10,'mini batch size')
 opt = cmd:parse(arg or {})
 print(opt)
 
-local starting_entity_creation_weight = 0.1
+local starting_entity_creation_weight = 0.05
 local shrinking_rate = 0.9999
 local shrinking_weight = starting_entity_creation_weight
 
@@ -297,7 +297,7 @@ feval = function(x)
       building_entity_loss = building_entity_loss + entity_creation_criteria[i]:forward(all_output[i],batch_gold_creation[i]) 
    end
    
-   local loss = shrinking_weight * building_entity_loss + prediction_loss 
+   local loss = (shrinking_weight * building_entity_loss + prediction_loss) / (shrinking_weight + 1) 
 --   print("shrinking_weight: ")
 --   print(shrinking_weight)
 --   
@@ -307,12 +307,12 @@ feval = function(x)
 --   print("loss: ")
 --   print(loss)
    
-   local loss_prediction_gradient = criterion:backward(model_prediction,batch_gold_index_tensor)
+   local loss_prediction_gradient = (criterion:backward(model_prediction,batch_gold_index_tensor)):mul(1 / (shrinking_weight + 1))
    
    local output_gradient = {}
    
    for i=1,opt.input_sequence_cardinality - 1 do
-      local loss_building_entity_gradient = (entity_creation_criteria[i]:backward(all_output[i],batch_gold_creation[i])):mul(shrinking_weight)
+      local loss_building_entity_gradient = (entity_creation_criteria[i]:backward(all_output[i],batch_gold_creation[i])):mul(shrinking_weight/ (shrinking_weight + 1))
       table.insert(output_gradient,loss_building_entity_gradient)
    end
    table.insert(output_gradient, loss_prediction_gradient)
@@ -510,6 +510,7 @@ while (continue_training==1) do
    current_loss = current_loss/number_of_batches
 
    print('done with epoch ' .. epoch_counter .. ' with average training loss ' .. current_loss)
+   print('shrinking weight: ' .. shrinking_weight)
 
    -- debug information
    local output_debug_prefix_epoch = nil
