@@ -112,8 +112,8 @@ function test(input_table,output_table,valid_batch_size,number_of_valid_batches,
 					    opt.use_cuda)
 
       -- passing current test samples through the trained network
-      local model_prediction=model:forward(batch_valid_input_representations_table)
-
+      local all_output=model:forward(batch_valid_input_representations_table)
+      local model_prediction = all_output[#all_output]
       -- accumulate loss
       -- NB: according to documentation, the criterion function already normalizes loss!
       cumulative_loss = cumulative_loss + criterion:forward(model_prediction,batch_valid_gold_index_tensor)
