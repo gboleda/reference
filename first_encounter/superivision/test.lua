@@ -61,6 +61,7 @@ end
 
 function test(input_table,output_table,valid_batch_size,number_of_valid_batches,valid_set_size,left_out_samples,debug_file_prefix,guesses_file)
 
+   local gold_index_list = output_table[#output_table]
    local valid_batch_begin_index = 1
    local cumulative_loss = 0
    local cumulative_accuracy = 0
