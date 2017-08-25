@@ -140,7 +140,6 @@ dofile('model-feedforward.lua')
 dofile('model-memnet.lua')
 dofile('model-dire.lua')
 dofile('model_2matrices.lua')
-dofile('model-for-counting.lua')
 dofile('model-onion.lua')
 dofile('model-dire-without-new-entity-prob.lua')
 

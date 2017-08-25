@@ -1,4 +1,3 @@
-require('../Peek')
 -- our main model sharing all image embeddings and all attribute embeddings
 -- WITH GERMÁN'S CHANGE
 -- * We obtain, with the usual regression a new reference probability p.
